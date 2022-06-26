@@ -3,8 +3,6 @@
 #include "fmt/core.h"
 #include "gba.hpp"
 
-#define iCycle(x) bus.internalCycle(x)
-
 template <typename T>
 u32 rotateMisaligned(T value, u32 address) {
 	return std::rotr((u32)value, (address & (sizeof(T) - 1)) * 8);
@@ -567,7 +565,7 @@ void ARM7TDMI::dataProcessing(u32 opcode) {
 	}
 
 	if (shiftReg) {
-		iCycle(1); // TODO: Should probably be after setting register
+		bus.iCycle(1); // TODO: Should probably be after setting register
 	} else {
 		fetchOpcode();
 	}
@@ -596,7 +594,7 @@ void ARM7TDMI::multiply(u32 opcode) {
 	u32 result = multiplier * reg.R[opcode & 0xF];
 	if constexpr (accumulate) {
 		result += reg.R[(opcode >> 12) & 0xF];
-		iCycle(1);
+		bus.iCycle(1);
 	}
 	reg.R[destinationReg] = result;
 	if constexpr (sBit) {
@@ -605,7 +603,7 @@ void ARM7TDMI::multiply(u32 opcode) {
 	}
 
 	int multiplierCycles = ((31 - std::max(std::countl_zero(multiplier), std::countl_one(multiplier))) / 8) + 1;
-	iCycle(multiplierCycles);
+	bus.iCycle(multiplierCycles);
 
 	if (destinationReg == 15) {
 		if constexpr (sBit)
@@ -633,14 +631,14 @@ void ARM7TDMI::multiplyLong(u32 opcode) {
 	}
 	if constexpr (accumulate) {
 		result += ((u64)reg.R[destinationRegHigh] << 32) | (u64)reg.R[destinationRegLow];
-		iCycle(1);
+		bus.iCycle(1);
 	}
 	if constexpr (sBit) {
 		reg.flagN = result >> 63;
 		reg.flagZ = result == 0;
 	}
 
-	iCycle(multiplierCycles + 1);
+	bus.iCycle(multiplierCycles + 1);
 
 	reg.R[destinationRegLow] = result;
 	reg.R[destinationRegHigh] = result >> 32;
@@ -671,7 +669,7 @@ void ARM7TDMI::singleDataSwap(u32 opcode) {
 	}
 
 	reg.R[destinationRegister] = result;
-	iCycle(1);
+	bus.iCycle(1);
 
 	if (destinationRegister == 15) {
 		flushPipeline();
@@ -845,7 +843,7 @@ void ARM7TDMI::halfwordDataTransfer(u32 opcode) {
 	}
 	if constexpr (loadStore) {
 		reg.R[srcDestRegister] = result;
-		iCycle(1);
+		bus.iCycle(1);
 
 		if (srcDestRegister == 15) {
 			flushPipeline();
@@ -904,7 +902,7 @@ void ARM7TDMI::singleDataTransfer(u32 opcode) {
 	}
 	if constexpr (loadStore) {
 		reg.R[srcDestRegister] = result;
-		iCycle(1);
+		bus.iCycle(1);
 
 		if (srcDestRegister == 15) {
 			flushPipeline();
@@ -978,7 +976,7 @@ void ARM7TDMI::blockDataTransfer(u32 opcode) {
 						firstReadWrite = false;
 				}
 			}
-			iCycle(1);
+			bus.iCycle(1);
 
 			if (opcode & (1 << 15)) { // Treat r15 loads as jumps
 				flushPipeline();
@@ -1299,7 +1297,7 @@ void ARM7TDMI::thumbAluReg(u16 opcode) {
 		break;
 	case 0xD: // MUL
 		fetchOpcode();
-		iCycle((31 - std::max(std::countl_zero(operand1), std::countl_one(operand1))) / 8);
+		bus.iCycle((31 - std::max(std::countl_zero(operand1), std::countl_one(operand1))) / 8);
 
 		result = operand1 * operand2;
 		break;
@@ -1318,7 +1316,7 @@ void ARM7TDMI::thumbAluReg(u16 opcode) {
 	if constexpr (writeResult)
 		reg.R[destinationReg] = result;
 	if constexpr (endWithIdle) {
-		iCycle(1);
+		bus.iCycle(1);
 	} else {
 		fetchOpcode();
 	}
@@ -1369,7 +1367,7 @@ void ARM7TDMI::thumbPcRelativeLoad(u16 opcode) {
 	fetchOpcode();
 
 	reg.R[destinationReg] = rotateMisaligned(bus.read<u32, false>(address, false), address);
-	iCycle(1);
+	bus.iCycle(1);
 }
 
 template <bool loadStore, bool byteWord, int offsetReg>
@@ -1385,7 +1383,7 @@ void ARM7TDMI::thumbLoadStoreRegOffset(u16 opcode) {
 			reg.R[srcDestRegister] = rotateMisaligned(bus.read<u32, false>(address, false), address);
 		}
 
-		iCycle(1);
+		bus.iCycle(1);
 	} else {
 		if constexpr (byteWord) { // STRB
 			bus.write<u8>(address, (u8)reg.R[srcDestRegister], false);
@@ -1429,7 +1427,7 @@ void ARM7TDMI::thumbLoadStoreSext(u16 opcode) {
 
 	if constexpr (hsBits != 0) {
 		reg.R[srcDestRegister] = result;
-		iCycle(1);
+		bus.iCycle(1);
 	}
 }
 
@@ -1445,7 +1443,7 @@ void ARM7TDMI::thumbLoadStoreImmediateOffset(u16 opcode) {
 		} else { // LDR
 			reg.R[srcDestRegister] = rotateMisaligned(bus.read<u32, false>(address, false), address);
 		}
-		iCycle(1);
+		bus.iCycle(1);
 	} else {
 		if constexpr (byteWord) { // STRB
 			bus.write<u8>(address, (u8)reg.R[srcDestRegister], false);
@@ -1466,7 +1464,7 @@ void ARM7TDMI::thumbLoadStoreHalfword(u16 opcode) {
 	if constexpr (loadStore) { // LDRH
 		reg.R[srcDestRegister] = rotateMisaligned(bus.read<u16, false>(address, false), address);
 
-		iCycle(1);
+		bus.iCycle(1);
 	} else { // STRH
 		bus.write<u16>(address, (u16)reg.R[srcDestRegister], false);
 
@@ -1482,7 +1480,7 @@ void ARM7TDMI::thumbSpRelativeLoadStore(u16 opcode) {
 	if constexpr (loadStore) {
 		reg.R[destinationReg] = bus.read<u32, false>(address, false);
 
-		iCycle(1);
+		bus.iCycle(1);
 	} else {
 		bus.write<u32>(address, reg.R[destinationReg], false);
 
@@ -1538,7 +1536,7 @@ void ARM7TDMI::thumbPushPopRegisters(u16 opcode) {
 						firstReadWrite = false;
 				}
 			}
-			iCycle(1);
+			bus.iCycle(1);
 			if constexpr (pcLr) {
 				reg.R[15] = bus.read<u32, false>(address, true);
 				flushPipeline();
@@ -1597,7 +1595,7 @@ void ARM7TDMI::thumbMultipleLoadStore(u16 opcode) {
 						firstReadWrite = false;
 				}
 			}
-			iCycle(1);
+			bus.iCycle(1);
 		}
 	} else { // STMIA!
 		if (emptyRegList) {
