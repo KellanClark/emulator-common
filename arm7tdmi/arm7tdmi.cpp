@@ -3,8 +3,6 @@
 #include "fmt/core.h"
 #include "gba.hpp"
 
-#include <bit>
-
 #define iCycle(x) bus.internalCycle(x)
 
 ARM7TDMI::ARM7TDMI(GameBoyAdvance& bus_) : bus(bus_) {
