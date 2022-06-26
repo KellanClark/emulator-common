@@ -10,6 +10,7 @@ ARM7TDMI::ARM7TDMI(GameBoyAdvance& bus_) : bus(bus_) {
 }
 
 void ARM7TDMI::resetARM7TDMI() {
+	processFiq = false;
 	processIrq = false;
 
 	reg.R[0] = 0x00000000;
@@ -25,11 +26,11 @@ void ARM7TDMI::resetARM7TDMI() {
 	reg.R[10] = 0x00000000;
 	reg.R[11] = 0x00000000;
 	reg.R[12] = 0x00000000;
-	reg.R[13] = 0x03007F00;
+	reg.R[13] = 0x00000000;
 	reg.R[14] = 0x00000000;
-	reg.R[15] = 0;//0x08000000; // Start of ROM
+	reg.R[15] = 0x00000000;
 
-	reg.CPSR = 0x000000DF;
+	reg.CPSR = 0x000000D3;
 
 	reg.R8_user = reg.R9_user = reg.R10_user = reg.R11_user = reg.R12_user = reg.R13_user = reg.R14_user = 0;
 	reg.R8_fiq = reg.R9_fiq = reg.R10_fiq = reg.R11_fiq = reg.R12_fiq = reg.R13_fiq = reg.R14_fiq = reg.SPSR_fiq = 0;
@@ -46,8 +47,13 @@ void ARM7TDMI::resetARM7TDMI() {
 }
 
 void ARM7TDMI::cycle() {
-	if (processIrq) { [[unlikely]] // Service interrupt
-		serviceInterrupt();
+#ifndef ARM7TDMI_DISABLE_FIQ
+	if(processFiq && !reg.irqDisable) { [[unlikely]] // Service fast interrupt
+		serviceFiq();
+	} else
+#endif
+	if (processIrq && !reg.irqDisable) { [[unlikely]] // Service interrupt
+		serviceIrq();
 	} else {
 		if (reg.thumbMode) {
 			u16 lutIndex = pipelineOpcode3 >> 6;
@@ -61,11 +67,6 @@ void ARM7TDMI::cycle() {
 			}
 		}
 	}
-
-	//if (reg.R[15] == (0x8000180 + 4))
-	//	unknownOpcodeArm(pipelineOpcode3, "BKPT");
-	//if (reg.R[15] == (0x8025396 + 4))
-	//	printf("0x%08X\n", reg.R[1]);
 }
 
 bool ARM7TDMI::checkCondition(int conditionCode) {
@@ -92,12 +93,27 @@ bool ARM7TDMI::checkCondition(int conditionCode) {
 	}
 }
 
-void ARM7TDMI::serviceInterrupt() {
-	processIrq = false;
-
+void ARM7TDMI::serviceFiq() {
 	//fetchOpcode();
 	//reg.R[15] -= reg.thumbMode ? 2 : 4;
 	bool oldThumb = reg.thumbMode;
+	processFiq = false;
+	bankRegisters(MODE_FIQ, true);
+	reg.R[14] = reg.R[15] - (oldThumb ? 0 : 4);
+
+	reg.irqDisable = true;
+	reg.fiqDisable = true;
+	reg.thumbMode = false;
+
+	reg.R[15] = 0x0000001C;
+	flushPipeline();
+}
+
+void ARM7TDMI::serviceIrq() {
+	//fetchOpcode();
+	//reg.R[15] -= reg.thumbMode ? 2 : 4;
+	bool oldThumb = reg.thumbMode;
+	processIrq = false;
 	bankRegisters(MODE_IRQ, true);
 	reg.R[14] = reg.R[15] - (oldThumb ? 0 : 4);
 
@@ -105,7 +121,7 @@ void ARM7TDMI::serviceInterrupt() {
 	reg.fiqDisable = true;
 	reg.thumbMode = false;
 
-	reg.R[15] = 0x18;
+	reg.R[15] = 0x00000018;
 	flushPipeline();
 }
 
@@ -701,7 +717,10 @@ template <bool targetPSR> void ARM7TDMI::psrStoreReg(u32 opcode) {
 		result |= *target & 0x000000FF;
 	}
 
-	*target = result;
+#ifdef ARM7TDMI_DISABLE_FIQ
+	result |= 0x00000040;
+#endif
+	*target = result | 0x00000010; // M[4] is always 1
 	fetchOpcode();
 }
 
@@ -738,7 +757,10 @@ template <bool targetPSR> void ARM7TDMI::psrStoreImmediate(u32 opcode) {
 		result |= *target & 0x000000FF;
 	}
 
-	*target = result;
+#ifdef ARM7TDMI_DISABLE_FIQ
+	result |= 0x00000040;
+#endif
+	*target = result | 0x00000010; // M[4] is always 1
 	fetchOpcode();
 }
 

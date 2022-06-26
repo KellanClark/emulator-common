@@ -4,13 +4,6 @@
 
 #include "types.hpp"
 
-template <typename T>
-concept BusType = requires(T& t) {
-	{ t.read8(int{}) } -> std::same_as<int>;
-	{ t.read16(int{}) } -> std::same_as<int>;
-	{ t.read32(int{}) } -> std::same_as<int>;
-};
-
 class GameBoyAdvance;
 class ARM7TDMI {
 public:
@@ -59,6 +52,7 @@ public:
 	} reg;
 
 	/* Instruction Decoding/Executing */
+	bool processFiq;
 	bool processIrq;
 	u32 pipelineOpcode1; // R15
 	u32 pipelineOpcode2; // R15 + 4
@@ -66,7 +60,8 @@ public:
 	bool nextFetchType;
 
 	bool checkCondition(int conditionCode);
-	void serviceInterrupt();
+	void serviceFiq();
+	void serviceIrq();
 	void fetchOpcode();
 	void flushPipeline();
 	void unknownOpcodeArm(u32 opcode);
@@ -75,7 +70,6 @@ public:
 	void unknownOpcodeThumb(u16 opcode, std::string message);
 
 	template <bool dataTransfer, bool iBit> bool computeShift(u32 opcode, u32 *result);
-	void switchMode(cpuMode newMode);
 	void bankRegisters(cpuMode newMode, bool changeCPSR);
 	void leaveMode();
 
