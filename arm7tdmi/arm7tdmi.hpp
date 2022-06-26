@@ -2,11 +2,14 @@
 #ifndef ARM7TDMI_HPP
 #define ARM7TDMI_HPP
 
-#include <array>
-#include <sstream>
-#include <string>
-
 #include "types.hpp"
+
+template <typename T>
+concept BusType = requires(T& t) {
+	{ t.read8(int{}) } -> std::same_as<int>;
+	{ t.read16(int{}) } -> std::same_as<int>;
+	{ t.read32(int{}) } -> std::same_as<int>;
+};
 
 class GameBoyAdvance;
 class ARM7TDMI {

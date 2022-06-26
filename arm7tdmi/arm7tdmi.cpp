@@ -2,9 +2,8 @@
 #include "arm7tdmi.hpp"
 #include "fmt/core.h"
 #include "gba.hpp"
-#include "types.hpp"
+
 #include <bit>
-#include <cstdio>
 
 #define iCycle(x) bus.internalCycle(x)
 

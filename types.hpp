@@ -1,7 +1,12 @@
 #ifndef TYPES_HPP
 #define TYPES_HPP
 
+#include <array>
 #include <cstdint>
+#include <cstdio>
+#include <iostream>
+#include <sstream>
+#include <string>
 
 using i8 = std::int8_t;
 using u8 = std::uint8_t;
