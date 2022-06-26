@@ -5,6 +5,11 @@
 
 #define iCycle(x) bus.internalCycle(x)
 
+template <typename T>
+u32 rotateMisaligned(T value, u32 address) {
+	return std::rotr((u32)value, (address & (sizeof(T) - 1)) * 8);
+}
+
 ARM7TDMI::ARM7TDMI(GameBoyAdvance& bus_) : bus(bus_) {
 	//resetARM7TDMI();
 }
@@ -661,7 +666,7 @@ void ARM7TDMI::singleDataSwap(u32 opcode) {
 		result = bus.read<u8, false>(address, true);
 		bus.write<u8>(address, (u8)reg.R[sourceRegister], false);
 	} else {
-		result = bus.read<u32, false>(address, true);
+		result = rotateMisaligned(bus.read<u32, false>(address, true), address);
 		bus.write<u32>(address, reg.R[sourceRegister], false);
 	}
 
@@ -807,11 +812,11 @@ void ARM7TDMI::halfwordDataTransfer(u32 opcode) {
 	u32 result = 0;
 	if constexpr (loadStore) {
 		if constexpr (shBits == 1) { // LDRH
-			result = bus.read<u16, false>(address, false);
+			result = rotateMisaligned(bus.read<u16, false>(address, false), address);
 		} else if constexpr (shBits == 2) { // LDRSB
 			result = ((i32)((u32)bus.read<u8, false>(address, false) << 24) >> 24);
 		} else if constexpr (shBits == 3) { // LDRSH
-			result = bus.read<u16, false>(address, false);
+			result = rotateMisaligned(bus.read<u16, false>(address, false), address);
 
 			if (address & 1) {
 				result = (i32)(result << 24) >> 24;
@@ -874,7 +879,7 @@ void ARM7TDMI::singleDataTransfer(u32 opcode) {
 		if constexpr (byteWord) {
 			result = bus.read<u8, false>(address, false);
 		} else {
-			result = bus.read<u32, false>(address, false);
+			result = rotateMisaligned(bus.read<u32, false>(address, false), address);
 		}
 	} else { // STR
 		if constexpr (byteWord) {
@@ -925,14 +930,14 @@ void ARM7TDMI::blockDataTransfer(u32 opcode) {
 	u32 address = reg.R[baseRegister];
 	u32 writeBackAddress;
 	bool emptyRegList = (opcode & 0xFFFF) == 0;
-	if constexpr (upDown) {
+	if constexpr (upDown) { // I
 		writeBackAddress = address + std::popcount(opcode & 0xFFFF) * 4;
 		if (emptyRegList)
 			writeBackAddress += 0x40;
 
 		if constexpr (prePostIndex)
 			address += 4;
-	} else {
+	} else { // D
 		address -= std::popcount(opcode & 0xFFFF) * 4;
 		if (emptyRegList)
 			address -= 0x40;
@@ -956,7 +961,7 @@ void ARM7TDMI::blockDataTransfer(u32 opcode) {
 
 		if (emptyRegList) { // TODO: find timings for empty list
 			reg.R[baseRegister] = writeBackAddress;
-			reg.R[15] = bus.read<u32, false, false>(address, false);
+			reg.R[15] = bus.read<u32, false>(address, false);
 			flushPipeline();
 		} else {
 			for (int i = 0; i < 16; i++) {
@@ -966,7 +971,7 @@ void ARM7TDMI::blockDataTransfer(u32 opcode) {
 							reg.R[baseRegister] = writeBackAddress;
 					}
 
-					reg.R[i] = bus.read<u32, false, false>(address, !firstReadWrite);
+					reg.R[i] = bus.read<u32, false>(address, !firstReadWrite);
 					address += 4;
 
 					if (firstReadWrite)
@@ -1363,7 +1368,7 @@ void ARM7TDMI::thumbPcRelativeLoad(u16 opcode) {
 	u32 address = (reg.R[15] + ((opcode & 0xFF) << 2)) & ~3;
 	fetchOpcode();
 
-	reg.R[destinationReg] = bus.read<u32, false>(address, false);
+	reg.R[destinationReg] = rotateMisaligned(bus.read<u32, false>(address, false), address);
 	iCycle(1);
 }
 
@@ -1377,7 +1382,7 @@ void ARM7TDMI::thumbLoadStoreRegOffset(u16 opcode) {
 		if constexpr (byteWord) { // LDRB
 			reg.R[srcDestRegister] = bus.read<u8, false>(address, false);
 		} else { // LDR
-			reg.R[srcDestRegister] = bus.read<u32, false>(address, false);
+			reg.R[srcDestRegister] = rotateMisaligned(bus.read<u32, false>(address, false), address);
 		}
 
 		iCycle(1);
@@ -1409,10 +1414,10 @@ void ARM7TDMI::thumbLoadStoreSext(u16 opcode) {
 		result = (i32)(result << 24) >> 24;
 		break;
 	case 2: // LDRH
-		result = bus.read<u16, false>(address, false);
+		result = rotateMisaligned(bus.read<u16, false>(address, false), address);
 		break;
 	case 3: // LDSH
-		result = bus.read<u16, false>(address, false);
+		result = rotateMisaligned(bus.read<u16, false>(address, false), address);
 
 		if (address & 1) {
 			result = (i32)(result << 24) >> 24;
@@ -1438,7 +1443,7 @@ void ARM7TDMI::thumbLoadStoreImmediateOffset(u16 opcode) {
 		if constexpr (byteWord) { // LDRB
 			reg.R[srcDestRegister] = bus.read<u8, false>(address, false);
 		} else { // LDR
-			reg.R[srcDestRegister] = bus.read<u32, false>(address, false);
+			reg.R[srcDestRegister] = rotateMisaligned(bus.read<u32, false>(address, false), address);
 		}
 		iCycle(1);
 	} else {
@@ -1459,7 +1464,7 @@ void ARM7TDMI::thumbLoadStoreHalfword(u16 opcode) {
 	fetchOpcode();
 
 	if constexpr (loadStore) { // LDRH
-		reg.R[srcDestRegister] = bus.read<u16, false>(address, false);
+		reg.R[srcDestRegister] = rotateMisaligned(bus.read<u16, false>(address, false), address);
 
 		iCycle(1);
 	} else { // STRH
@@ -1526,7 +1531,7 @@ void ARM7TDMI::thumbPushPopRegisters(u16 opcode) {
 		} else {
 			for (int i = 0; i < 8; i++) {
 				if (opcode & (1 << i)) {
-					reg.R[i] = bus.read<u32, false, false>(address, !firstReadWrite);
+					reg.R[i] = bus.read<u32, false>(address, !firstReadWrite);
 					address += 4;
 
 					if (firstReadWrite)
@@ -1577,7 +1582,7 @@ void ARM7TDMI::thumbMultipleLoadStore(u16 opcode) {
 	if constexpr (loadStore) { // LDMIA!
 		if (emptyRegList) {
 			reg.R[baseReg] = writeBackAddress;
-			reg.R[15] = bus.read<u32, false, false>(address, true);
+			reg.R[15] = bus.read<u32, false>(address, true);
 			flushPipeline();
 		} else {
 			for (int i = 0; i < 8; i++) {
@@ -1585,7 +1590,7 @@ void ARM7TDMI::thumbMultipleLoadStore(u16 opcode) {
 					if (firstReadWrite)
 						reg.R[baseReg] = writeBackAddress;
 
-					reg.R[i] = bus.read<u32, false, false>(address, !firstReadWrite);
+					reg.R[i] = bus.read<u32, false>(address, !firstReadWrite);
 					address += 4;
 
 					if (firstReadWrite)
