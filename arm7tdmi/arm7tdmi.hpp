@@ -9,6 +9,8 @@ template <class T>
 class ARM7TDMI {
 public:
 	T& bus;
+	bool processFiq;
+	bool processIrq;
 
 	/* User Functions */
 	ARM7TDMI(T& bus_)  : bus(bus_) {
@@ -114,8 +116,6 @@ public:
 	} reg;
 
 	/* Instruction Fetch/Decode */
-	bool processFiq;
-	bool processIrq;
 	u32 pipelineOpcode1; // R15
 	u32 pipelineOpcode2; // R15 + 4
 	u32 pipelineOpcode3; // R15 + 8
