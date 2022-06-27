@@ -1694,12 +1694,12 @@ public:
 	}
 
 	template <std::size_t... lutFillIndex>
-	constexpr static std::array<lutEntry, 4096> generateTable(std::index_sequence<lutFillIndex...>) {
+	constexpr static std::array<lutEntry, 8192> generateTable(std::index_sequence<lutFillIndex...>) {
 		return std::array{decode<lutFillIndex>()...};
 	}
 
-	constexpr static const std::array<lutEntry, 4096> LUT = {
-		generateTable(std::make_index_sequence<4096>())
+	constexpr static const std::array<lutEntry, 8192> LUT = {
+		generateTable(std::make_index_sequence<8192>())
 	};
 
 	template <std::size_t lutFillIndex>
