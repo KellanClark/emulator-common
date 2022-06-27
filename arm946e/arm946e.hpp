@@ -1693,9 +1693,44 @@ public:
 		return &ARM946E<T>::unknownOpcodeArm;
 	}
 
+	template <std::size_t lutFillIndex>
+	constexpr static lutEntry decode2() {
+		/*if constexpr ((lutFillIndex & armMultiplyMask) == armMultiplyBits) {
+			return &ARM946E<T>::multiply<(bool)(lutFillIndex & 0b0000'0010'0000), (bool)(lutFillIndex & 0b0000'0001'0000)>;
+		} else if constexpr ((lutFillIndex & armMultiplyLongMask) == armMultiplyLongBits) {
+			return &ARM946E<T>::multiplyLong<(bool)(lutFillIndex & 0b0000'0100'0000), (bool)(lutFillIndex & 0b0000'0010'0000), (bool)(lutFillIndex & 0b0000'0001'0000)>;
+		} else if constexpr ((lutFillIndex & armPsrLoadMask) == armPsrLoadBits) {
+			return &ARM946E<T>::psrLoad<(bool)(lutFillIndex & 0b0000'0100'0000)>;
+		} else if constexpr ((lutFillIndex & armPsrStoreRegMask) == armPsrStoreRegBits) {
+			return &ARM946E<T>::psrStoreReg<(bool)(lutFillIndex & 0b0000'0100'0000)>;
+		} else if constexpr ((lutFillIndex & armPsrStoreImmediateMask) == armPsrStoreImmediateBits) {
+			return &ARM946E<T>::psrStoreImmediate<(bool)(lutFillIndex & 0b0000'0100'0000)>;
+		} else if constexpr ((lutFillIndex & armSingleDataSwapMask) == armSingleDataSwapBits) {
+			return &ARM946E<T>::singleDataSwap<(bool)(lutFillIndex & 0b0000'0100'0000)>;
+		} else if constexpr ((lutFillIndex & armBranchExchangeMask) == armBranchExchangeBits) {
+			return &ARM946E<T>::branchExchange;
+		} else if constexpr ((lutFillIndex & armHalfwordDataTransferMask) == armHalfwordDataTransferBits) {
+			return &ARM946E<T>::halfwordDataTransfer<(bool)(lutFillIndex & 0b0001'0000'0000), (bool)(lutFillIndex & 0b0000'1000'0000), (bool)(lutFillIndex & 0b0000'0100'0000), (bool)(lutFillIndex & 0b0000'0010'0000), (bool)(lutFillIndex & 0b0000'0001'0000), ((lutFillIndex & 0b0000'0000'0110) >> 1)>;
+		} else if constexpr ((lutFillIndex & armDataProcessingMask) == armDataProcessingBits) {
+			return &ARM946E<T>::dataProcessing<(bool)(lutFillIndex & 0b0010'0000'0000), ((lutFillIndex & 0b0001'1110'0000) >> 5), (bool)(lutFillIndex & 0b0000'0001'0000)>;
+		} else if constexpr ((lutFillIndex & armUndefinedMask) == armUndefinedBits) {
+			return &ARM946E<T>::undefined;
+		} else if constexpr ((lutFillIndex & armSingleDataTransferMask) == armSingleDataTransferBits) {
+			return &ARM946E<T>::singleDataTransfer<(bool)(lutFillIndex & 0b0010'0000'0000), (bool)(lutFillIndex & 0b0001'0000'0000), (bool)(lutFillIndex & 0b0000'1000'0000), (bool)(lutFillIndex & 0b0000'0100'0000), (bool)(lutFillIndex & 0b0000'0010'0000), (bool)(lutFillIndex & 0b0000'0001'0000)>;
+		} else if constexpr ((lutFillIndex & armBlockDataTransferMask) == armBlockDataTransferBits) {
+			return &ARM946E<T>::blockDataTransfer<(bool)(lutFillIndex & 0b0001'0000'0000), (bool)(lutFillIndex & 0b0000'1000'0000), (bool)(lutFillIndex & 0b0000'0100'0000), (bool)(lutFillIndex & 0b0000'0010'0000), (bool)(lutFillIndex & 0b0000'0001'0000)>;
+		} else if constexpr ((lutFillIndex & armBranchMask) == armBranchBits) {
+			return &ARM946E<T>::branch<(bool)(lutFillIndex & 0b0001'0000'0000)>;
+		} else if constexpr ((lutFillIndex & armSoftwareInterruptMask) == armSoftwareInterruptBits) {
+			return &ARM946E<T>::softwareInterrupt;
+		}*/
+
+		return &ARM946E<T>::unknownOpcodeArm;
+	}
+
 	template <std::size_t... lutFillIndex>
 	constexpr static std::array<lutEntry, 8192> generateTable(std::index_sequence<lutFillIndex...>) {
-		return std::array{decode<lutFillIndex>()...};
+		return std::array{decode<lutFillIndex>()..., decode2<lutFillIndex>()...};
 	}
 
 	constexpr static const std::array<lutEntry, 8192> LUT = {
