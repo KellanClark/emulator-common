@@ -215,8 +215,8 @@ public:
 	}
 
 	void unknownOpcodeArm(u32 opcode, std::string message) {
-		bus.cpu.addEvent(1, bus.cpu.stopEvent, this);
 		bus.log << fmt::format("Unknown ARM opcode 0x{:0>8X} at address 0x{:0>7X}  Message: {}\n", opcode, reg.R[15] - 8, message.c_str());
+		bus.hacf();
 	}
 
 	void unknownOpcodeThumb(u16 opcode) {
@@ -224,8 +224,8 @@ public:
 	}
 
 	void unknownOpcodeThumb(u16 opcode, std::string message) {
-		bus.cpu.addEvent(1, bus.cpu.stopEvent, this);
 		bus.log << fmt::format("Unknown THUMB opcode 0x{:0>4X} at address 0x{:0>7X}  Message: {}\n", opcode, reg.R[15] - 4, message.c_str());
+		bus.hacf();
 	}
 
 	/* Helper Functions */
@@ -420,7 +420,7 @@ public:
 		default:
 			printf("Unknown mode 0x%02X\n", newMode);
 			bus.log << fmt::format("Unknown mode 0x{:0>2X}\n", newMode);
-			bus.cpu.running = false;
+			bus.hacf();
 			return;
 		}
 
@@ -1292,7 +1292,6 @@ public:
 	}
 
 	template <int destinationReg> void thumbPcRelativeLoad(u16 opcode) {
-		// TODO: Is this always aligned? What if r15 is the destination?
 		u32 address = (reg.R[15] + ((opcode & 0xFF) << 2)) & ~3;
 		fetchOpcode();
 
@@ -1698,7 +1697,7 @@ public:
 	}
 
 	constexpr static const std::array<lutEntry, 4096> LUT = {
-		generateTable<T>(std::make_index_sequence<4096>())
+		generateTable(std::make_index_sequence<4096>())
 	};
 
 	template <std::size_t lutFillIndex>

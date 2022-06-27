@@ -47,9 +47,9 @@ public:
 		reg.R13_irq = reg.R14_irq = reg.SPSR_irq = 0;
 		reg.R13_und = reg.R14_und = reg.SPSR_und = 0;
 
-		reg.R13_irq = 0x3007FA0;
-		reg.R13_svc = 0x3007FE0;
-		reg.R13_fiq = reg.R13_abt = reg.R13_und = 0x3007FF0;
+		reg.R13_irq = 0x0000000;
+		reg.R13_svc = 0x0000000;
+		reg.R13_fiq = reg.R13_abt = reg.R13_und = 0x00000000;
 
 		flushPipeline();
 	}
@@ -67,8 +67,9 @@ public:
 				u16 lutIndex = pipelineOpcode3 >> 6;
 				(this->*thumbLUT[lutIndex])((u16)pipelineOpcode3);
 			} else {
-				if (checkCondition(pipelineOpcode3 >> 28)) {
-					u32 lutIndex = ((pipelineOpcode3 & 0x0FF00000) >> 16) | ((pipelineOpcode3 & 0x000000F0) >> 4);
+				u32 conditionCode = pipelineOpcode3 >> 28;
+				if (checkCondition(conditionCode)) {
+					u32 lutIndex = ((conditionCode == 0xF) << 12) | ((pipelineOpcode3 & 0x0FF00000) >> 16) | ((pipelineOpcode3 & 0x000000F0) >> 4);
 					(this->*LUT[lutIndex])(pipelineOpcode3);
 				} else {
 					fetchOpcode();
@@ -97,7 +98,8 @@ public:
 				u32 thumbMode : 1;
 				u32 fiqDisable : 1;
 				u32 irqDisable : 1;
-				u32 : 20;
+				u32 : 19;
+				u32 flagQ : 1;
 				u32 flagV : 1;
 				u32 flagC : 1;
 				u32 flagZ : 1;
@@ -138,7 +140,7 @@ public:
 		case 0xC: return !reg.flagZ && (reg.flagN == reg.flagV);
 		case 0xD: return reg.flagZ || (reg.flagN != reg.flagV);
 		case 0xE: [[likely]] return true;
-		case 0xF: [[unlikely]] return true;
+		case 0xF: return true;
 		default:
 			unknownOpcodeArm(pipelineOpcode3, "Invalid condition");
 			return false;
@@ -215,8 +217,8 @@ public:
 	}
 
 	void unknownOpcodeArm(u32 opcode, std::string message) {
-		bus.cpu.addEvent(1, bus.cpu.stopEvent, this);
 		bus.log << fmt::format("Unknown ARM opcode 0x{:0>8X} at address 0x{:0>7X}  Message: {}\n", opcode, reg.R[15] - 8, message.c_str());
+		bus.hacf();
 	}
 
 	void unknownOpcodeThumb(u16 opcode) {
@@ -224,8 +226,8 @@ public:
 	}
 
 	void unknownOpcodeThumb(u16 opcode, std::string message) {
-		bus.cpu.addEvent(1, bus.cpu.stopEvent, this);
 		bus.log << fmt::format("Unknown THUMB opcode 0x{:0>4X} at address 0x{:0>7X}  Message: {}\n", opcode, reg.R[15] - 4, message.c_str());
+		bus.hacf();
 	}
 
 	/* Helper Functions */
@@ -420,7 +422,7 @@ public:
 		default:
 			printf("Unknown mode 0x%02X\n", newMode);
 			bus.log << fmt::format("Unknown mode 0x{:0>2X}\n", newMode);
-			bus.cpu.running = false;
+			bus.hacf();
 			return;
 		}
 
@@ -699,9 +701,9 @@ public:
 
 		u32 result = 0;
 		if (opcode & (1 << 19)) {
-			result |= operand & 0xF0000000;
+			result |= operand & 0xF8000000;
 		} else {
-			result |= *target & 0xF0000000;
+			result |= *target & 0xF8000000;
 		}
 		if ((opcode & (1 << 16)) && reg.mode != MODE_USER) {
 			result |= operand & 0x000000FF;
@@ -739,9 +741,9 @@ public:
 
 		u32 result = 0;
 		if (opcode & (1 << 19)) {
-			result |= operand & 0xF0000000;
+			result |= operand & 0xF8000000;
 		} else {
-			result |= *target & 0xF0000000;
+			result |= *target & 0xF8000000;
 		}
 		if ((opcode & (1 << 16)) && reg.mode != MODE_USER) {
 			result |= operand & 0x000000FF;
@@ -1280,7 +1282,7 @@ public:
 			reg.thumbMode = newThumb;
 			reg.R[15] = newAddress;
 			flushPipeline();
-		}return;
+			} return;
 		}
 		fetchOpcode();
 		if constexpr (op != 1)
@@ -1292,7 +1294,6 @@ public:
 	}
 
 	template <int destinationReg> void thumbPcRelativeLoad(u16 opcode) {
-		// TODO: Is this always aligned? What if r15 is the destination?
 		u32 address = (reg.R[15] + ((opcode & 0xFF) << 2)) & ~3;
 		fetchOpcode();
 
@@ -1581,38 +1582,38 @@ public:
 	}
 
 	/* Generate Instruction LUTs */
-	static const u32 armDataProcessingMask = 0b1100'0000'0000;
-	static const u32 armDataProcessingBits = 0b0000'0000'0000;
-	static const u32 armMultiplyMask = 0b1111'1100'1111;
-	static const u32 armMultiplyBits = 0b0000'0000'1001;
-	static const u32 armMultiplyLongMask = 0b1111'1000'1111;
-	static const u32 armMultiplyLongBits = 0b0000'1000'1001;
-	static const u32 armPsrLoadMask = 0b1111'1011'1111;
-	static const u32 armPsrLoadBits = 0b0001'0000'0000;
-	static const u32 armPsrStoreRegMask = 0b1111'1011'1111;
-	static const u32 armPsrStoreRegBits = 0b0001'0010'0000;
-	static const u32 armPsrStoreImmediateMask = 0b1111'1011'0000;
-	static const u32 armPsrStoreImmediateBits = 0b0011'0010'0000;
-	static const u32 armSingleDataSwapMask = 0b1111'1011'1111;
-	static const u32 armSingleDataSwapBits = 0b0001'0000'1001;
-	static const u32 armBranchExchangeMask = 0b1111'1111'1111;
-	static const u32 armBranchExchangeBits = 0b0001'0010'0001;
-	static const u32 armHalfwordDataTransferMask = 0b1110'0000'1001;
-	static const u32 armHalfwordDataTransferBits = 0b0000'0000'1001;
-	static const u32 armSingleDataTransferMask = 0b1100'0000'0000;
-	static const u32 armSingleDataTransferBits = 0b0100'0000'0000;
-	static const u32 armUndefinedMask = 0b1110'0000'0001;
-	static const u32 armUndefinedBits = 0b0110'0000'0001;
-	static const u32 armBlockDataTransferMask = 0b1110'0000'0000;
-	static const u32 armBlockDataTransferBits = 0b1000'0000'0000;
-	static const u32 armBranchMask = 0b1110'0000'0000;
-	static const u32 armBranchBits = 0b1010'0000'0000;
-	static const u32 armCoprocessorDataTransferMask = 0b1110'0000'0000;
-	static const u32 armCoprocessorDataTransferBits = 0b1100'0000'0000;
-	static const u32 armCoprocessorDataOperationMask = 0b1111'0000'0001;
-	static const u32 armCoprocessorDataOperationBits = 0b1110'0000'0000;
-	static const u32 armCoprocessorRegisterTransferMask = 0b1111'0000'0001;
-	static const u32 armCoprocessorRegisterTransferBits = 0b1110'0000'0001;
+	static const u32 armDataProcessingMask = 0b1'1100'0000'0000;
+	static const u32 armDataProcessingBits = 0b0'0000'0000'0000;
+	static const u32 armMultiplyMask = 0b1'1111'1100'1111;
+	static const u32 armMultiplyBits = 0b0'0000'0000'1001;
+	static const u32 armMultiplyLongMask = 0b0'1111'1000'1111;
+	static const u32 armMultiplyLongBits = 0b0'0000'1000'1001;
+	static const u32 armPsrLoadMask = 0b1'1111'1011'1111;
+	static const u32 armPsrLoadBits = 0b0'0001'0000'0000;
+	static const u32 armPsrStoreRegMask = 0b1'1111'1011'1111;
+	static const u32 armPsrStoreRegBits = 0b0'0001'0010'0000;
+	static const u32 armPsrStoreImmediateMask = 0b1'1111'1011'0000;
+	static const u32 armPsrStoreImmediateBits = 0b0'0011'0010'0000;
+	static const u32 armSingleDataSwapMask = 0b1'1111'1011'1111;
+	static const u32 armSingleDataSwapBits = 0b0'0001'0000'1001;
+	static const u32 armBranchExchangeMask = 0b1'1111'1111'1111;
+	static const u32 armBranchExchangeBits = 0b0'0001'0010'0001;
+	static const u32 armHalfwordDataTransferMask = 0b1'1110'0000'1001;
+	static const u32 armHalfwordDataTransferBits = 0b0'0000'0000'1001;
+	static const u32 armSingleDataTransferMask = 0b1'1100'0000'0000;
+	static const u32 armSingleDataTransferBits = 0b0'0100'0000'0000;
+	static const u32 armUndefinedMask = 0b1'1110'0000'0001;
+	static const u32 armUndefinedBits = 0b0'0110'0000'0001;
+	static const u32 armBlockDataTransferMask = 0b1'1110'0000'0000;
+	static const u32 armBlockDataTransferBits = 0b0'1000'0000'0000;
+	static const u32 armBranchMask = 0b1'1110'0000'0000;
+	static const u32 armBranchBits = 0b0'1010'0000'0000;
+	static const u32 armCoprocessorDataTransferMask = 0b0'1110'0000'0000;
+	static const u32 armCoprocessorDataTransferBits = 0b0'1100'0000'0000;
+	static const u32 armCoprocessorDataOperationMask = 0b0'1111'0000'0001;
+	static const u32 armCoprocessorDataOperationBits = 0b0'1110'0000'0000;
+	static const u32 armCoprocessorRegisterTransferMask = 0b0'1111'0000'0001;
+	static const u32 armCoprocessorRegisterTransferBits = 0b0'1110'0000'0001;
 	static const u32 armSoftwareInterruptMask = 0b1111'0000'0000;
 	static const u32 armSoftwareInterruptBits = 0b1111'0000'0000;
 	static const u16 thumbMoveShiftedRegMask = 0b1110'0000'00;
@@ -1698,7 +1699,7 @@ public:
 	}
 
 	constexpr static const std::array<lutEntry, 4096> LUT = {
-		generateTable<T>(std::make_index_sequence<4096>())
+		generateTable(std::make_index_sequence<4096>())
 	};
 
 	template <std::size_t lutFillIndex>
