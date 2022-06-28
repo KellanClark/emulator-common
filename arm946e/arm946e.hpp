@@ -69,8 +69,13 @@ public:
 			} else {
 				u32 conditionCode = pipelineOpcode3 >> 28;
 				if (checkCondition(conditionCode)) {
-					u32 lutIndex = ((conditionCode == 0xF) << 12) | ((pipelineOpcode3 & 0x0FF00000) >> 16) | ((pipelineOpcode3 & 0x000000F0) >> 4);
-					(this->*LUT[lutIndex])(pipelineOpcode3);
+					u32 lutIndex = ((pipelineOpcode3 & 0x0FF00000) >> 16) | ((pipelineOpcode3 & 0x000000F0) >> 4);
+
+					if (conditionCode == 0xF) {
+						(this->*armLUT2[lutIndex])(pipelineOpcode3);
+					} else { [[likely]]
+						(this->*armLUT[lutIndex])(pipelineOpcode3);
+					}
 				} else {
 					fetchOpcode();
 				}
@@ -1710,11 +1715,12 @@ public:
 		return std::array{decode2<lutFillIndex>()...};
 	}
 
-	constexpr static const std::array<lutEntry, 4096> LUT = {
+	// I wanted to make this one big LUT, but it's prone to making compilers run out of memory
+	constexpr static const std::array<lutEntry, 4096> armLUT = {
 		generateTable(std::make_index_sequence<4096>())
 	};
 
-	constexpr static const std::array<lutEntry, 4096> LUT2 = {
+	constexpr static const std::array<lutEntry, 4096> armLUT2 = {
 		generateTable2(std::make_index_sequence<4096>())
 	};
 

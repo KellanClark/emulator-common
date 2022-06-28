@@ -69,7 +69,7 @@ public:
 			} else {
 				if (checkCondition(pipelineOpcode3 >> 28)) {
 					u32 lutIndex = ((pipelineOpcode3 & 0x0FF00000) >> 16) | ((pipelineOpcode3 & 0x000000F0) >> 4);
-					(this->*LUT[lutIndex])(pipelineOpcode3);
+					(this->*armLUT[lutIndex])(pipelineOpcode3);
 				} else {
 					fetchOpcode();
 				}
@@ -1696,7 +1696,7 @@ public:
 		return std::array{decode<lutFillIndex>()...};
 	}
 
-	constexpr static const std::array<lutEntry, 4096> LUT = {
+	constexpr static const std::array<lutEntry, 4096> armLUT = {
 		generateTable(std::make_index_sequence<4096>())
 	};
 
