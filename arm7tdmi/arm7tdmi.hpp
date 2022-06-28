@@ -179,13 +179,13 @@ public:
 
 	void fetchOpcode() {
 		if (reg.thumbMode) {
-			pipelineOpcode1 = bus.read<u16, true>(reg.R[15], nextFetchType);
+			pipelineOpcode1 = bus.template read<u16, true>(reg.R[15], nextFetchType);
 			pipelineOpcode3 = pipelineOpcode2;
 			pipelineOpcode2 = pipelineOpcode1;
 
 			reg.R[15] += 2;
 		} else {
-			pipelineOpcode1 = bus.read<u32, true>(reg.R[15], nextFetchType);
+			pipelineOpcode1 = bus.template read<u32, true>(reg.R[15], nextFetchType);
 			pipelineOpcode3 = pipelineOpcode2;
 			pipelineOpcode2 = pipelineOpcode1;
 
@@ -198,12 +198,12 @@ public:
 	void flushPipeline() {
 		if (reg.thumbMode) {
 			reg.R[15] = (reg.R[15] & ~1) + 4;
-			pipelineOpcode3 = bus.read<u16, true>(reg.R[15] - 4, false);
-			pipelineOpcode2 = bus.read<u16, true>(reg.R[15] - 2, true);
+			pipelineOpcode3 = bus.template read<u16, true>(reg.R[15] - 4, false);
+			pipelineOpcode2 = bus.template read<u16, true>(reg.R[15] - 2, true);
 		} else {
 			reg.R[15] = (reg.R[15] & ~3) + 8;
-			pipelineOpcode3 = bus.read<u32, true>(reg.R[15] - 8, false);
-			pipelineOpcode2 = bus.read<u32, true>(reg.R[15] - 4, true);
+			pipelineOpcode3 = bus.template read<u32, true>(reg.R[15] - 8, false);
+			pipelineOpcode2 = bus.template read<u32, true>(reg.R[15] - 4, true);
 		}
 
 		nextFetchType = true;
@@ -634,11 +634,11 @@ public:
 		fetchOpcode();
 
 		if constexpr (byteWord) {
-			result = bus.read<u8, false>(address, true);
-			bus.write<u8>(address, (u8)reg.R[sourceRegister], false);
+			result = bus.template read<u8, false>(address, true);
+			bus.template write<u8>(address, (u8)reg.R[sourceRegister], false);
 		} else {
-			result = rotateMisaligned(bus.read<u32, false>(address, true), address);
-			bus.write<u32>(address, reg.R[sourceRegister], false);
+			result = rotateMisaligned(bus.template read<u32, false>(address, true), address);
+			bus.template write<u32>(address, reg.R[sourceRegister], false);
 		}
 
 		reg.R[destinationRegister] = result;
@@ -794,11 +794,11 @@ public:
 		u32 result = 0;
 		if constexpr (loadStore) {
 			if constexpr (shBits == 1) { // LDRH
-				result = rotateMisaligned(bus.read<u16, false>(address, false), address);
+				result = rotateMisaligned(bus.template read<u16, false>(address, false), address);
 			} else if constexpr (shBits == 2) { // LDRSB
-				result = ((i32)((u32)bus.read<u8, false>(address, false) << 24) >> 24);
+				result = ((i32)((u32)bus.template read<u8, false>(address, false) << 24) >> 24);
 			} else if constexpr (shBits == 3) { // LDRSH
-				result = rotateMisaligned(bus.read<u16, false>(address, false), address);
+				result = rotateMisaligned(bus.template read<u16, false>(address, false), address);
 
 				if (address & 1) {
 					result = (i32)(result << 24) >> 24;
@@ -808,7 +808,7 @@ public:
 			}
 		} else {
 			if constexpr (shBits == 1) { // STRH
-				bus.write<u16>(address, (u16)reg.R[srcDestRegister], false);
+				bus.template write<u16>(address, (u16)reg.R[srcDestRegister], false);
 			}
 
 			nextFetchType = false;
@@ -858,15 +858,15 @@ public:
 		u32 result = 0;
 		if constexpr (loadStore) { // LDR
 			if constexpr (byteWord) {
-				result = bus.read<u8, false>(address, false);
+				result = bus.template read<u8, false>(address, false);
 			} else {
-				result = rotateMisaligned(bus.read<u32, false>(address, false), address);
+				result = rotateMisaligned(bus.template read<u32, false>(address, false), address);
 			}
 		} else { // STR
 			if constexpr (byteWord) {
-				bus.write<u8>(address, reg.R[srcDestRegister], false);
+				bus.template write<u8>(address, reg.R[srcDestRegister], false);
 			} else {
-				bus.write<u32>(address, reg.R[srcDestRegister], false);
+				bus.template write<u32>(address, reg.R[srcDestRegister], false);
 			}
 
 			nextFetchType = false;
@@ -941,7 +941,7 @@ public:
 
 			if (emptyRegList) { // TODO: find timings for empty list
 				reg.R[baseRegister] = writeBackAddress;
-				reg.R[15] = bus.read<u32, false>(address, false);
+				reg.R[15] = bus.template read<u32, false>(address, false);
 				flushPipeline();
 			} else {
 				for (int i = 0; i < 16; i++) {
@@ -951,7 +951,7 @@ public:
 								reg.R[baseRegister] = writeBackAddress;
 						}
 
-						reg.R[i] = bus.read<u32, false>(address, !firstReadWrite);
+						reg.R[i] = bus.template read<u32, false>(address, !firstReadWrite);
 						address += 4;
 
 						if (firstReadWrite)
@@ -966,12 +966,12 @@ public:
 			}
 		} else { // STM
 			if (emptyRegList) {
-				bus.write<u32>(address, reg.R[15], false);
+				bus.template write<u32>(address, reg.R[15], false);
 				reg.R[baseRegister] = writeBackAddress;
 			} else {
 				for (int i = 0; i < 16; i++) {
 					if (opcode & (1 << i)) {
-						bus.write<u32>(address, reg.R[i], !firstReadWrite);
+						bus.template write<u32>(address, reg.R[i], !firstReadWrite);
 						address += 4;
 
 						if (firstReadWrite) {
@@ -1295,7 +1295,7 @@ public:
 		u32 address = (reg.R[15] + ((opcode & 0xFF) << 2)) & ~3;
 		fetchOpcode();
 
-		reg.R[destinationReg] = rotateMisaligned(bus.read<u32, false>(address, false), address);
+		reg.R[destinationReg] = rotateMisaligned(bus.template read<u32, false>(address, false), address);
 		bus.iCycle(1);
 	}
 
@@ -1306,17 +1306,17 @@ public:
 
 		if constexpr (loadStore) {
 			if constexpr (byteWord) { // LDRB
-				reg.R[srcDestRegister] = bus.read<u8, false>(address, false);
+				reg.R[srcDestRegister] = bus.template read<u8, false>(address, false);
 			} else { // LDR
-				reg.R[srcDestRegister] = rotateMisaligned(bus.read<u32, false>(address, false), address);
+				reg.R[srcDestRegister] = rotateMisaligned(bus.template read<u32, false>(address, false), address);
 			}
 
 			bus.iCycle(1);
 		} else {
 			if constexpr (byteWord) { // STRB
-				bus.write<u8>(address, (u8)reg.R[srcDestRegister], false);
+				bus.template write<u8>(address, (u8)reg.R[srcDestRegister], false);
 			} else { // STR
-				bus.write<u32>(address, reg.R[srcDestRegister], false);
+				bus.template write<u32>(address, reg.R[srcDestRegister], false);
 			}
 
 			nextFetchType = false;
@@ -1331,18 +1331,18 @@ public:
 		u32 result = 0;
 		switch (hsBits) {
 		case 0: // STRH
-			bus.write<u16>(address, (u16)reg.R[srcDestRegister], false);
+			bus.template write<u16>(address, (u16)reg.R[srcDestRegister], false);
 			nextFetchType = false;
 			break;
 		case 1: // LDSB
-			result = bus.read<u8, false>(address, false);
+			result = bus.template read<u8, false>(address, false);
 			result = (i32)(result << 24) >> 24;
 			break;
 		case 2: // LDRH
-			result = rotateMisaligned(bus.read<u16, false>(address, false), address);
+			result = rotateMisaligned(bus.template read<u16, false>(address, false), address);
 			break;
 		case 3: // LDSH
-			result = rotateMisaligned(bus.read<u16, false>(address, false), address);
+			result = rotateMisaligned(bus.template read<u16, false>(address, false), address);
 
 			if (address & 1) {
 				result = (i32)(result << 24) >> 24;
@@ -1365,16 +1365,16 @@ public:
 
 		if constexpr (loadStore) {
 			if constexpr (byteWord) { // LDRB
-				reg.R[srcDestRegister] = bus.read<u8, false>(address, false);
+				reg.R[srcDestRegister] = bus.template read<u8, false>(address, false);
 			} else { // LDR
-				reg.R[srcDestRegister] = rotateMisaligned(bus.read<u32, false>(address, false), address);
+				reg.R[srcDestRegister] = rotateMisaligned(bus.template read<u32, false>(address, false), address);
 			}
 			bus.iCycle(1);
 		} else {
 			if constexpr (byteWord) { // STRB
-				bus.write<u8>(address, (u8)reg.R[srcDestRegister], false);
+				bus.template write<u8>(address, (u8)reg.R[srcDestRegister], false);
 			} else { // STR
-				bus.write<u32>(address, reg.R[srcDestRegister], false);
+				bus.template write<u32>(address, reg.R[srcDestRegister], false);
 			}
 
 			nextFetchType = false;
@@ -1387,11 +1387,11 @@ public:
 		fetchOpcode();
 
 		if constexpr (loadStore) { // LDRH
-			reg.R[srcDestRegister] = rotateMisaligned(bus.read<u16, false>(address, false), address);
+			reg.R[srcDestRegister] = rotateMisaligned(bus.template read<u16, false>(address, false), address);
 
 			bus.iCycle(1);
 		} else { // STRH
-			bus.write<u16>(address, (u16)reg.R[srcDestRegister], false);
+			bus.template write<u16>(address, (u16)reg.R[srcDestRegister], false);
 
 			nextFetchType = false;
 		}
@@ -1402,11 +1402,11 @@ public:
 		fetchOpcode();
 
 		if constexpr (loadStore) {
-			reg.R[destinationReg] = bus.read<u32, false>(address, false);
+			reg.R[destinationReg] = bus.template read<u32, false>(address, false);
 
 			bus.iCycle(1);
 		} else {
-			bus.write<u32>(address, reg.R[destinationReg], false);
+			bus.template write<u32>(address, reg.R[destinationReg], false);
 
 			nextFetchType = false;
 		}
@@ -1445,12 +1445,12 @@ public:
 			fetchOpcode(); // Writeback really should be inside the main loop but this works
 
 			if (emptyRegList) {
-				reg.R[15] = bus.read<u32, false>(address, false);
+				reg.R[15] = bus.template read<u32, false>(address, false);
 				flushPipeline();
 			} else {
 				for (int i = 0; i < 8; i++) {
 					if (opcode & (1 << i)) {
-						reg.R[i] = bus.read<u32, false>(address, !firstReadWrite);
+						reg.R[i] = bus.template read<u32, false>(address, !firstReadWrite);
 						address += 4;
 
 						if (firstReadWrite)
@@ -1459,7 +1459,7 @@ public:
 				}
 				bus.iCycle(1);
 				if constexpr (pcLr) {
-					reg.R[15] = bus.read<u32, false>(address, true);
+					reg.R[15] = bus.template read<u32, false>(address, true);
 					flushPipeline();
 				}
 			}
@@ -1471,16 +1471,16 @@ public:
 			fetchOpcode();
 
 			if (emptyRegList) {
-				bus.write<u32>(address, reg.R[15] + 2, false);
+				bus.template write<u32>(address, reg.R[15] + 2, false);
 			} else {
 				for (int i = 0; i < 8; i++) {
 					if (opcode & (1 << i)) {
-						bus.write<u32>(address, reg.R[i], !firstReadWrite);
+						bus.template write<u32>(address, reg.R[i], !firstReadWrite);
 						address += 4;
 					}
 				}
 				if constexpr (pcLr)
-					bus.write<u32>(address, reg.R[14], true);
+					bus.template write<u32>(address, reg.R[14], true);
 			}
 			nextFetchType = false;
 		}
@@ -1500,7 +1500,7 @@ public:
 		if constexpr (loadStore) { // LDMIA!
 			if (emptyRegList) {
 				reg.R[baseReg] = writeBackAddress;
-				reg.R[15] = bus.read<u32, false>(address, true);
+				reg.R[15] = bus.template read<u32, false>(address, true);
 				flushPipeline();
 			} else {
 				for (int i = 0; i < 8; i++) {
@@ -1508,7 +1508,7 @@ public:
 						if (firstReadWrite)
 							reg.R[baseReg] = writeBackAddress;
 
-						reg.R[i] = bus.read<u32, false>(address, !firstReadWrite);
+						reg.R[i] = bus.template read<u32, false>(address, !firstReadWrite);
 						address += 4;
 
 						if (firstReadWrite)
@@ -1519,12 +1519,12 @@ public:
 			}
 		} else { // STMIA!
 			if (emptyRegList) {
-				bus.write<u32>(address, reg.R[15], false);
+				bus.template write<u32>(address, reg.R[15], false);
 				reg.R[baseReg] = writeBackAddress;
 			} else {
 				for (int i = 0; i < 8; i++) {
 					if (opcode & (1 << i)) {
-						bus.write<u32>(address, reg.R[i], !firstReadWrite);
+						bus.template write<u32>(address, reg.R[i], !firstReadWrite);
 						address += 4;
 
 						if (firstReadWrite) {
