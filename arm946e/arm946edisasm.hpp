@@ -340,6 +340,11 @@ public:
 			return "Undefined THUMB";
 		} else {
 			u32 lutIndex = ((opcode & 0x0FF00000) >> 16) | ((opcode & 0x000000F0) >> 4);
+			if ((opcode >> 28) == 0xF) {
+				lutIndex |= 1 << 12;
+				conditionCode = "2";
+			}
+
 			if ((lutIndex & armMultiplyMask) == armMultiplyBits) {
 				bool accumulate = lutIndex & 0b0000'0010'0000;
 				bool sBit = lutIndex & 0b0000'0001'0000;
