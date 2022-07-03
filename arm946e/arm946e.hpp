@@ -14,6 +14,7 @@ public:
 	/* User Functions */
 	ARM946E(T& bus_)  : bus(bus_) {
 		//resetARM946E();
+		putchar('9');
 	}
 
 	void resetARM946E()  {

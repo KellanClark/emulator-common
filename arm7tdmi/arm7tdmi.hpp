@@ -14,6 +14,7 @@ public:
 	/* User Functions */
 	ARM7TDMI(T& bus_)  : bus(bus_) {
 		//resetARM7TDMI();
+		putchar('7');
 	}
 
 	void resetARM7TDMI()  {
