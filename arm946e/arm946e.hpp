@@ -14,7 +14,6 @@ public:
 	/* User Functions */
 	ARM946E(T& bus_)  : bus(bus_) {
 		//resetARM946E();
-		putchar('9');
 	}
 
 	void resetARM946E()  {
@@ -1589,6 +1588,8 @@ public:
 	/* Generate Instruction LUTs */
 	static const u32 armDataProcessingMask = 0b1'1100'0000'0000;
 	static const u32 armDataProcessingBits = 0b0'0000'0000'0000;
+	static const u32 armUndefined1Mask = 0b1'1111'1011'0000;
+	static const u32 armUndefined1Bits = 0b0'0011'0000'0000;
 	static const u32 armMultiplyMask = 0b1'1111'1100'1111;
 	static const u32 armMultiplyBits = 0b0'0000'0000'1001;
 	static const u32 armMultiplyLongMask = 0b0'1111'1000'1111;
@@ -1607,8 +1608,8 @@ public:
 	static const u32 armHalfwordDataTransferBits = 0b0'0000'0000'1001;
 	static const u32 armSingleDataTransferMask = 0b1'1100'0000'0000;
 	static const u32 armSingleDataTransferBits = 0b0'0100'0000'0000;
-	static const u32 armUndefinedMask = 0b1'1110'0000'0001;
-	static const u32 armUndefinedBits = 0b0'0110'0000'0001;
+	static const u32 armUndefined2Mask = 0b1'1110'0000'0001;
+	static const u32 armUndefined2Bits = 0b0'0110'0000'0001;
 	static const u32 armBlockDataTransferMask = 0b1'1110'0000'0000;
 	static const u32 armBlockDataTransferBits = 0b0'1000'0000'0000;
 	static const u32 armBranchMask = 0b1'1110'0000'0000;
@@ -1665,7 +1666,9 @@ public:
 
 	template <std::size_t lutFillIndex>
 	constexpr static lutEntry decode() {
-		if constexpr ((lutFillIndex & armMultiplyMask) == armMultiplyBits) {
+		if constexpr ((lutFillIndex & armUndefined1Mask) == armUndefined1Bits) {
+			return &ARM946E<T>::undefined;
+		} else if constexpr ((lutFillIndex & armMultiplyMask) == armMultiplyBits) {
 			return &ARM946E<T>::multiply<(bool)(lutFillIndex & 0b0000'0010'0000), (bool)(lutFillIndex & 0b0000'0001'0000)>;
 		} else if constexpr ((lutFillIndex & armMultiplyLongMask) == armMultiplyLongBits) {
 			return &ARM946E<T>::multiplyLong<(bool)(lutFillIndex & 0b0000'0100'0000), (bool)(lutFillIndex & 0b0000'0010'0000), (bool)(lutFillIndex & 0b0000'0001'0000)>;
@@ -1683,7 +1686,7 @@ public:
 			return &ARM946E<T>::halfwordDataTransfer<(bool)(lutFillIndex & 0b0001'0000'0000), (bool)(lutFillIndex & 0b0000'1000'0000), (bool)(lutFillIndex & 0b0000'0100'0000), (bool)(lutFillIndex & 0b0000'0010'0000), (bool)(lutFillIndex & 0b0000'0001'0000), ((lutFillIndex & 0b0000'0000'0110) >> 1)>;
 		} else if constexpr ((lutFillIndex & armDataProcessingMask) == armDataProcessingBits) {
 			return &ARM946E<T>::dataProcessing<(bool)(lutFillIndex & 0b0010'0000'0000), ((lutFillIndex & 0b0001'1110'0000) >> 5), (bool)(lutFillIndex & 0b0000'0001'0000)>;
-		} else if constexpr ((lutFillIndex & armUndefinedMask) == armUndefinedBits) {
+		} else if constexpr ((lutFillIndex & armUndefined2Mask) == armUndefined2Bits) {
 			return &ARM946E<T>::undefined;
 		} else if constexpr ((lutFillIndex & armSingleDataTransferMask) == armSingleDataTransferBits) {
 			return &ARM946E<T>::singleDataTransfer<(bool)(lutFillIndex & 0b0010'0000'0000), (bool)(lutFillIndex & 0b0001'0000'0000), (bool)(lutFillIndex & 0b0000'1000'0000), (bool)(lutFillIndex & 0b0000'0100'0000), (bool)(lutFillIndex & 0b0000'0010'0000), (bool)(lutFillIndex & 0b0000'0001'0000)>;
