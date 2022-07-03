@@ -3,7 +3,6 @@
 #define ARM946E_HPP
 
 #include "types.hpp"
-#include "fmt/core.h"
 
 template <class T>
 class ARM946E {

@@ -751,6 +751,8 @@ private:
 	static const u32 armCoprocessorDataOperationBits = 0b0'1110'0000'0000;
 	static const u32 armCoprocessorRegisterTransferMask = 0b0'1111'0000'0001;
 	static const u32 armCoprocessorRegisterTransferBits = 0b0'1110'0000'0001;
+	static const u32 armSoftwareInterruptMask = 0b1111'0000'0000;
+	static const u32 armSoftwareInterruptBits = 0b1111'0000'0000;
 	static const u16 thumbMoveShiftedRegMask = 0b1110'0000'00;
 	static const u16 thumbMoveShiftedRegBits = 0b0000'0000'00;
 	static const u16 thumbAddSubtractMask = 0b1111'1000'00;

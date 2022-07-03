@@ -3,7 +3,6 @@
 #define ARM7TDMI_HPP
 
 #include "types.hpp"
-#include "fmt/core.h"
 
 template <class T>
 class ARM7TDMI {
@@ -47,9 +46,9 @@ public:
 		reg.R13_irq = reg.R14_irq = reg.SPSR_irq = 0;
 		reg.R13_und = reg.R14_und = reg.SPSR_und = 0;
 
-		reg.R13_irq = 0x3007FA0;
-		reg.R13_svc = 0x3007FE0;
-		reg.R13_fiq = reg.R13_abt = reg.R13_und = 0x3007FF0;
+		reg.R13_irq = 0x00000000;
+		reg.R13_svc = 0x00000000;
+		reg.R13_fiq = reg.R13_abt = reg.R13_und = 0x00000000;
 
 		flushPipeline();
 	}
