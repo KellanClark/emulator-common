@@ -428,7 +428,13 @@ public:
 
 				return disassembledOpcode.str();
 			} else if ((lutIndex & armBranchExchangeMask) == armBranchExchangeBits) {
-				disassembledOpcode << "BX" << conditionCode << " " << getRegName(opcode & 0xF);
+				bool link = lutIndex & 0b0000'0100'0010;
+
+				disassembledOpcode << (link ? "BLX" : "BX") << conditionCode << " " << getRegName(opcode & 0xF);
+
+				return disassembledOpcode.str();
+			} else if ((lutIndex & armCountLeadingZerosMask) == armCountLeadingZerosBits) {
+				disassembledOpcode << "CLZ" << conditionCode << " " << getRegName((opcode >> 12) & 0xF) << ", " << getRegName(opcode & 0xF);
 
 				return disassembledOpcode.str();
 			} else if ((lutIndex & armHalfwordDataTransferMask) == armHalfwordDataTransferBits) {
@@ -454,7 +460,7 @@ public:
 					break;
 				}
 
-				disassembledOpcode << " r" << ((opcode >> 12) & 0xF) << ", [r" << ((opcode >> 16) & 0xF);
+				disassembledOpcode << " " << getRegName((opcode >> 12) & 0xF) << ", [" << getRegName((opcode >> 16) & 0xF);
 
 				u32 offset;
 				if (immediateOffset) {
@@ -472,7 +478,7 @@ public:
 				if (immediateOffset) {
 					disassembledOpcode << (upDown ? "#" : "#-") << offset;
 				} else {
-					disassembledOpcode << (upDown ? "+r" : "-r") << (opcode & 0xF);
+					disassembledOpcode << (upDown ? "+" : "-") << getRegName(opcode & 0xF);
 				}
 
 				if (prePostIndex)
@@ -508,9 +514,9 @@ public:
 					disassembledOpcode << "S";
 				disassembledOpcode << conditionCode << " ";
 				if (printRd)
-					disassembledOpcode << "r" << (((0xF << 12) & opcode) >> 12) << ", ";
+					disassembledOpcode << getRegName(((0xF << 12) & opcode) >> 12) << ", ";
 				if (printRn)
-					disassembledOpcode << "r" << (((0xF << 16) & opcode) >> 16) << ", ";
+					disassembledOpcode << getRegName(((0xF << 16) & opcode) >> 16) << ", ";
 
 				disassembledOpcode << disassembleShift(opcode, false);
 
@@ -679,10 +685,9 @@ private:
 			}
 		} else {
 			if (showUpDown) {
-				returnValue << (((opcode >> 23) & 1) ? "r" : "-r") << (opcode & 0xF);
-			} else {
-				returnValue << getRegName(opcode & 0xF);
+				returnValue << (((opcode >> 23) & 1) ? "" : "-");
 			}
+			returnValue << getRegName(opcode & 0xF);
 
 			if ((opcode & 0xFF0) == 0) // LSL #0
 				return returnValue.str();
@@ -708,7 +713,7 @@ private:
 			}
 
 			if (opcode & (1 << 4)) {
-				returnValue << "r" << ((opcode & (0xF << 8)) >> 8);
+				returnValue << getRegName((opcode & (0xF << 8)) >> 8);
 			} else {
 				auto shiftAmount = ((opcode & (0x1F << 7)) >> 7);
 				if ((shiftAmount == 0) && ((opcode & (3 << 5)) != 0))
@@ -737,8 +742,10 @@ private:
 	static const u32 armPsrStoreImmediateBits = 0b0'0011'0010'0000;
 	static const u32 armSingleDataSwapMask = 0b1'1111'1011'1111;
 	static const u32 armSingleDataSwapBits = 0b0'0001'0000'1001;
-	static const u32 armBranchExchangeMask = 0b1'1111'1111'1111;
+	static const u32 armBranchExchangeMask = 0b1'1111'1111'1101;
 	static const u32 armBranchExchangeBits = 0b0'0001'0010'0001;
+	static const u32 armCountLeadingZerosMask = 0b1'1111'1111'1111;
+	static const u32 armCountLeadingZerosBits = 0b0'0001'0110'0001;
 	static const u32 armHalfwordDataTransferMask = 0b1'1110'0000'1001;
 	static const u32 armHalfwordDataTransferBits = 0b0'0000'0000'1001;
 	static const u32 armSingleDataTransferMask = 0b1'1100'0000'0000;

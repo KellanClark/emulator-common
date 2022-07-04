@@ -577,7 +577,8 @@ public:
 			result += reg.R[(opcode >> 12) & 0xF];
 			bus.iCycle(1);
 		}
-		reg.R[destinationReg] = result;
+		if (destinationReg != 15)
+			reg.R[destinationReg] = result;
 		if constexpr (sBit) {
 			reg.flagN = result >> 31;
 			reg.flagZ = result == 0;
@@ -585,13 +586,6 @@ public:
 
 		int multiplierCycles = ((31 - std::max(std::countl_zero(multiplier), std::countl_one(multiplier))) / 8) + 1;
 		bus.iCycle(multiplierCycles);
-
-		if (destinationReg == 15) {
-			if constexpr (sBit)
-				leaveMode();
-
-			flushPipeline();
-		}
 	}
 
 	template <bool signedMul, bool accumulate, bool sBit> void multiplyLong(u32 opcode) {
@@ -620,16 +614,10 @@ public:
 
 		bus.iCycle(multiplierCycles + 1);
 
-		reg.R[destinationRegLow] = result;
-		reg.R[destinationRegHigh] = result >> 32;
-
-		nextFetchType = true;
-		if ((destinationRegLow == 15) || (destinationRegHigh == 15)) {
-			if constexpr (sBit)
-				leaveMode();
-
-			flushPipeline();
-		}
+		if (destinationRegLow != 15)
+			reg.R[destinationRegLow] = result;
+		if (destinationRegHigh != 15)
+			reg.R[destinationRegHigh] = result >> 32;
 	}
 
 	template <bool byteWord> void singleDataSwap(u32 opcode) {
@@ -764,14 +752,27 @@ public:
 		fetchOpcode();
 	}
 
+	template <bool link>
 	void branchExchange(u32 opcode) {
 		bool newThumb = reg.R[opcode & 0xF] & 1;
 		u32 newAddress = reg.R[opcode & 0xF] & (newThumb ? ~1 : ~3);
 		fetchOpcode();
 
+		if constexpr (link)
+			reg.R[14] = reg.R[15] - 8;
 		reg.thumbMode = newThumb;
 		reg.R[15] = newAddress;
 		flushPipeline();
+	}
+
+	void countLeadingZeros(u32 opcode) {
+		auto operand = reg.R[opcode & 0xF];
+		auto destinationReg = (opcode >> 12) & 0xF;
+		if (destinationReg == 15)
+			unknownOpcodeArm(opcode, "clz r15 as destination");
+
+		reg.r[destinationReg] = std::countl_zero(operand);
+		fetchOpcode();
 	}
 
 	template <bool prePostIndex, bool upDown, bool immediateOffset, bool writeBack, bool loadStore, int shBits> void halfwordDataTransfer(u32 opcode)  {
@@ -1002,11 +1003,11 @@ public:
 		}
 	}
 
-	template <bool lBit> void branch(u32 opcode) {
+	template <bool link> void branch(u32 opcode) {
 		u32 address = reg.R[15] + (((i32)((opcode & 0x00FFFFFF) << 8)) >> 6);
 		fetchOpcode();
 
-		if constexpr (lBit)
+		if constexpr (link)
 			reg.R[14] = reg.R[15] - 8;
 		reg.R[15] = address;
 		flushPipeline();
@@ -1602,8 +1603,10 @@ public:
 	static const u32 armPsrStoreImmediateBits = 0b0'0011'0010'0000;
 	static const u32 armSingleDataSwapMask = 0b1'1111'1011'1111;
 	static const u32 armSingleDataSwapBits = 0b0'0001'0000'1001;
-	static const u32 armBranchExchangeMask = 0b1'1111'1111'1111;
+	static const u32 armBranchExchangeMask = 0b1'1111'1111'1101;
 	static const u32 armBranchExchangeBits = 0b0'0001'0010'0001;
+	static const u32 armCountLeadingZerosMask = 0b1'1111'1111'1111;
+	static const u32 armCountLeadingZerosBits = 0b0'0001'0110'0001;
 	static const u32 armHalfwordDataTransferMask = 0b1'1110'0000'1001;
 	static const u32 armHalfwordDataTransferBits = 0b0'0000'0000'1001;
 	static const u32 armSingleDataTransferMask = 0b1'1100'0000'0000;
@@ -1681,7 +1684,9 @@ public:
 		} else if constexpr ((lutFillIndex & armSingleDataSwapMask) == armSingleDataSwapBits) {
 			return &ARM946E<T>::singleDataSwap<(bool)(lutFillIndex & 0b0000'0100'0000)>;
 		} else if constexpr ((lutFillIndex & armBranchExchangeMask) == armBranchExchangeBits) {
-			return &ARM946E<T>::branchExchange;
+			return &ARM946E<T>::branchExchange<(bool)(lutFillIndex & 0b0000'0100'0010)>;
+		} else if constexpr ((lutFillIndex & armCountLeadingZerosMask) == armCountLeadingZerosBits) {
+			return &ARM946E<T>::countLeadingZeros;
 		} else if constexpr ((lutFillIndex & armHalfwordDataTransferMask) == armHalfwordDataTransferBits) {
 			return &ARM946E<T>::halfwordDataTransfer<(bool)(lutFillIndex & 0b0001'0000'0000), (bool)(lutFillIndex & 0b0000'1000'0000), (bool)(lutFillIndex & 0b0000'0100'0000), (bool)(lutFillIndex & 0b0000'0010'0000), (bool)(lutFillIndex & 0b0000'0001'0000), ((lutFillIndex & 0b0000'0000'0110) >> 1)>;
 		} else if constexpr ((lutFillIndex & armDataProcessingMask) == armDataProcessingBits) {

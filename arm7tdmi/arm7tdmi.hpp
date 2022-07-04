@@ -570,7 +570,8 @@ public:
 			result += reg.R[(opcode >> 12) & 0xF];
 			bus.iCycle(1);
 		}
-		reg.R[destinationReg] = result;
+		if (destinationReg != 15)
+			reg.R[destinationReg] = result;
 		if constexpr (sBit) {
 			reg.flagN = result >> 31;
 			reg.flagZ = result == 0;
@@ -578,13 +579,6 @@ public:
 
 		int multiplierCycles = ((31 - std::max(std::countl_zero(multiplier), std::countl_one(multiplier))) / 8) + 1;
 		bus.iCycle(multiplierCycles);
-
-		if (destinationReg == 15) {
-			if constexpr (sBit)
-				leaveMode();
-
-			flushPipeline();
-		}
 	}
 
 	template <bool signedMul, bool accumulate, bool sBit> void multiplyLong(u32 opcode) {
@@ -613,16 +607,10 @@ public:
 
 		bus.iCycle(multiplierCycles + 1);
 
-		reg.R[destinationRegLow] = result;
-		reg.R[destinationRegHigh] = result >> 32;
-
-		nextFetchType = true;
-		if ((destinationRegLow == 15) || (destinationRegHigh == 15)) {
-			if constexpr (sBit)
-				leaveMode();
-
-			flushPipeline();
-		}
+		if (destinationRegLow != 15)
+			reg.R[destinationRegLow] = result;
+		if (destinationRegHigh != 15)
+			reg.R[destinationRegHigh] = result >> 32;
 	}
 
 	template <bool byteWord> void singleDataSwap(u32 opcode) {
@@ -995,11 +983,11 @@ public:
 		}
 	}
 
-	template <bool lBit> void branch(u32 opcode) {
+	template <bool link> void branch(u32 opcode) {
 		u32 address = reg.R[15] + (((i32)((opcode & 0x00FFFFFF) << 8)) >> 6);
 		fetchOpcode();
 
-		if constexpr (lBit)
+		if constexpr (link)
 			reg.R[14] = reg.R[15] - 8;
 		reg.R[15] = address;
 		flushPipeline();

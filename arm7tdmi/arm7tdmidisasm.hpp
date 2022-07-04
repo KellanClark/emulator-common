@@ -449,7 +449,7 @@ public:
 					break;
 				}
 
-				disassembledOpcode << " r" << ((opcode >> 12) & 0xF) << ", [r" << ((opcode >> 16) & 0xF);
+				disassembledOpcode << " " << getRegName((opcode >> 12) & 0xF) << ", [" << getRegName((opcode >> 16) & 0xF);
 
 				u32 offset;
 				if (immediateOffset) {
@@ -467,7 +467,7 @@ public:
 				if (immediateOffset) {
 					disassembledOpcode << (upDown ? "#" : "#-") << offset;
 				} else {
-					disassembledOpcode << (upDown ? "+r" : "-r") << (opcode & 0xF);
+					disassembledOpcode << (upDown ? "+" : "-") << getRegName(opcode & 0xF);
 				}
 
 				if (prePostIndex)
@@ -503,9 +503,9 @@ public:
 					disassembledOpcode << "S";
 				disassembledOpcode << conditionCode << " ";
 				if (printRd)
-					disassembledOpcode << "r" << (((0xF << 12) & opcode) >> 12) << ", ";
+					disassembledOpcode << getRegName(((0xF << 12) & opcode) >> 12) << ", ";
 				if (printRn)
-					disassembledOpcode << "r" << (((0xF << 16) & opcode) >> 16) << ", ";
+					disassembledOpcode << getRegName(((0xF << 16) & opcode) >> 16) << ", ";
 
 				disassembledOpcode << disassembleShift(opcode, false);
 
@@ -674,10 +674,9 @@ private:
 			}
 		} else {
 			if (showUpDown) {
-				returnValue << (((opcode >> 23) & 1) ? "r" : "-r") << (opcode & 0xF);
-			} else {
-				returnValue << getRegName(opcode & 0xF);
+				returnValue << (((opcode >> 23) & 1) ? "" : "-");
 			}
+			returnValue << getRegName(opcode & 0xF);
 
 			if ((opcode & 0xFF0) == 0) // LSL #0
 				return returnValue.str();
@@ -703,7 +702,7 @@ private:
 			}
 
 			if (opcode & (1 << 4)) {
-				returnValue << "r" << ((opcode & (0xF << 8)) >> 8);
+				returnValue << getRegName((opcode & (0xF << 8)) >> 8);
 			} else {
 				auto shiftAmount = ((opcode & (0x1F << 7)) >> 7);
 				if ((shiftAmount == 0) && ((opcode & (3 << 5)) != 0))
