@@ -771,7 +771,7 @@ public:
 		if (destinationReg == 15)
 			unknownOpcodeArm(opcode, "clz r15 as destination");
 
-		reg.r[destinationReg] = std::countl_zero(operand);
+		reg.R[destinationReg] = std::countl_zero(operand);
 		fetchOpcode();
 	}
 
