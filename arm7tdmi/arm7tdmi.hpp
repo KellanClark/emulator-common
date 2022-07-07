@@ -1535,6 +1535,15 @@ public:
 		}
 	}
 
+	void thumbUndefined(u16 opcode) {
+		bankRegisters(MODE_UNDEFINED, true);
+		reg.R[14] = reg.R[15] - 2;
+		fetchOpcode();
+
+		reg.R[15] = 0x4;
+		flushPipeline();
+	}
+
 	void thumbSoftwareInterrupt(u16 opcode) {
 		fetchOpcode();
 		bankRegisters(MODE_SUPERVISOR, true);
@@ -1635,10 +1644,14 @@ public:
 	static const u16 thumbMultipleLoadStoreBits = 0b1100'0000'00;
 	static const u16 thumbConditionalBranchMask = 0b1111'0000'00;
 	static const u16 thumbConditionalBranchBits = 0b1101'0000'00;
+	static const u16 thumbUndefined1Mask = 0b1111'1111'00;
+	static const u16 thumbUndefined1Bits = 0b1101'1110'00;
 	static const u16 thumbSoftwareInterruptMask = 0b1111'1111'00;
 	static const u16 thumbSoftwareInterruptBits = 0b1101'1111'00;
 	static const u16 thumbUnconditionalBranchMask = 0b1111'1000'00;
 	static const u16 thumbUnconditionalBranchBits = 0b1110'0000'00;
+	static const u16 thumbUndefined2Mask = 0b1111'1000'00;
+	static const u16 thumbUndefined2Bits = 0b1110'1000'00;
 	static const u16 thumbLongBranchLinkMask = 0b1111'0000'00;
 	static const u16 thumbLongBranchLinkBits = 0b1111'0000'00;
 
@@ -1681,12 +1694,10 @@ public:
 
 		return &ARM7TDMI<T>::unknownOpcodeArm;
 	}
-
 	template <std::size_t... lutFillIndex>
 	constexpr static std::array<lutEntry, 4096> generateTable(std::index_sequence<lutFillIndex...>) {
 		return std::array{decode<lutFillIndex>()...};
 	}
-
 	constexpr static const std::array<lutEntry, 4096> armLUT = {
 		generateTable(std::make_index_sequence<4096>())
 	};
@@ -1723,12 +1734,16 @@ public:
 			return &ARM7TDMI<T>::thumbPushPopRegisters<(bool)(lutFillIndex & 0b0000'1000'00), (bool)(lutFillIndex & 0b0000'0001'00)>;
 		} else if constexpr ((lutFillIndex & thumbMultipleLoadStoreMask) == thumbMultipleLoadStoreBits) {
 			return &ARM7TDMI<T>::thumbMultipleLoadStore<(bool)(lutFillIndex & 0b0000'1000'00), ((lutFillIndex & 0b0000'0111'00) >> 2)>;
+		} else if constexpr ((lutFillIndex & thumbUndefined1Mask) == thumbUndefined1Bits) {
+			return &ARM7TDMI<T>::thumbUndefined;
 		} else if constexpr ((lutFillIndex & thumbSoftwareInterruptMask) == thumbSoftwareInterruptBits) {
 			return &ARM7TDMI<T>::thumbSoftwareInterrupt;
 		} else if constexpr ((lutFillIndex & thumbConditionalBranchMask) == thumbConditionalBranchBits) {
 			return &ARM7TDMI<T>::thumbConditionalBranch<((lutFillIndex & 0b0000'1111'00) >> 2)>;
 		} else if constexpr ((lutFillIndex & thumbUnconditionalBranchMask) == thumbUnconditionalBranchBits) {
 			return &ARM7TDMI<T>::thumbUnconditionalBranch;
+		} else if constexpr ((lutFillIndex & thumbUndefined2Mask) == thumbUndefined2Bits) {
+			return &ARM7TDMI<T>::thumbUndefined;
 		} else if constexpr ((lutFillIndex & thumbLongBranchLinkMask) == thumbLongBranchLinkBits) {
 			return &ARM7TDMI<T>::thumbLongBranchLink<(bool)(lutFillIndex & 0b0000'1000'00)>;
 		}

@@ -1278,6 +1278,8 @@ public:
 		case 3:{ // BX
 			bool newThumb = reg.R[operand2] & 1;
 			u32 newAddress = reg.R[operand2];
+			if (opFlag1) // BLX
+				reg.R[14] = (reg.R[15] - 2) | 1;
 			fetchOpcode();
 
 			reg.thumbMode = newThumb;
@@ -1545,6 +1547,15 @@ public:
 		}
 	}
 
+	void thumbUndefined(u16 opcode) {
+		bankRegisters(MODE_UNDEFINED, true);
+		reg.R[14] = reg.R[15] - 2;
+		fetchOpcode();
+
+		reg.R[15] = 0x4;
+		flushPipeline();
+	}
+
 	void thumbSoftwareInterrupt(u16 opcode) {
 		fetchOpcode();
 		bankRegisters(MODE_SUPERVISOR, true);
@@ -1559,6 +1570,20 @@ public:
 		fetchOpcode();
 
 		reg.R[15] = newAddress;
+		flushPipeline();
+	}
+
+	void thumbBlxSuffix(u16 opcode) {
+		if (opcode & 1) {
+			thumbUndefined(opcode);
+			return;
+		}
+
+		u32 address = reg.R[14] + ((opcode & 0x7FF) << 1) & ~3;
+		reg.R[14] = (reg.R[15] - 2) | 1;
+		fetchOpcode();
+
+		reg.R[15] = address;
 		flushPipeline();
 	}
 
@@ -1647,10 +1672,14 @@ public:
 	static const u16 thumbMultipleLoadStoreBits = 0b1100'0000'00;
 	static const u16 thumbConditionalBranchMask = 0b1111'0000'00;
 	static const u16 thumbConditionalBranchBits = 0b1101'0000'00;
+	static const u16 thumbUndefinedMask = 0b1111'1111'00;
+	static const u16 thumbUndefinedBits = 0b1101'1110'00;
 	static const u16 thumbSoftwareInterruptMask = 0b1111'1111'00;
 	static const u16 thumbSoftwareInterruptBits = 0b1101'1111'00;
 	static const u16 thumbUnconditionalBranchMask = 0b1111'1000'00;
 	static const u16 thumbUnconditionalBranchBits = 0b1110'0000'00;
+	static const u16 thumbBlxSuffixMask = 0b1111'1000'00;
+	static const u16 thumbBlxSuffixBits = 0b1110'1000'00;
 	static const u16 thumbLongBranchLinkMask = 0b1111'0000'00;
 	static const u16 thumbLongBranchLinkBits = 0b1111'0000'00;
 
@@ -1695,7 +1724,6 @@ public:
 
 		return &ARM946E<T>::unknownOpcodeArm;
 	}
-
 	template <std::size_t lutFillIndex>
 	constexpr static lutEntry decode2() {
 		if constexpr ((lutFillIndex & armBranchMask) == armBranchBits) {
@@ -1704,22 +1732,18 @@ public:
 
 		return &ARM946E<T>::unknownOpcodeArm;
 	}
-
 	template <std::size_t... lutFillIndex>
 	constexpr static std::array<lutEntry, 4096> generateTable(std::index_sequence<lutFillIndex...>) {
 		return std::array{decode<lutFillIndex>()...};
 	}
-
 	template <std::size_t... lutFillIndex>
 	constexpr static std::array<lutEntry, 4096> generateTable2(std::index_sequence<lutFillIndex...>) {
 		return std::array{decode2<lutFillIndex>()...};
 	}
-
-	// I wanted to make this one big LUT, but it's prone to making compilers run out of memory
+	// I wanted to make this one big LUT, but that's prone to making compilers run out of memory
 	constexpr static const std::array<lutEntry, 4096> armLUT = {
 		generateTable(std::make_index_sequence<4096>())
 	};
-
 	constexpr static const std::array<lutEntry, 4096> armLUT2 = {
 		generateTable2(std::make_index_sequence<4096>())
 	};
@@ -1756,12 +1780,16 @@ public:
 			return &ARM946E<T>::thumbPushPopRegisters<(bool)(lutFillIndex & 0b0000'1000'00), (bool)(lutFillIndex & 0b0000'0001'00)>;
 		} else if constexpr ((lutFillIndex & thumbMultipleLoadStoreMask) == thumbMultipleLoadStoreBits) {
 			return &ARM946E<T>::thumbMultipleLoadStore<(bool)(lutFillIndex & 0b0000'1000'00), ((lutFillIndex & 0b0000'0111'00) >> 2)>;
+		} else if constexpr ((lutFillIndex & thumbUndefinedMask) == thumbUndefinedBits) {
+			return &ARM946E<T>::thumbUndefined;
 		} else if constexpr ((lutFillIndex & thumbSoftwareInterruptMask) == thumbSoftwareInterruptBits) {
 			return &ARM946E<T>::thumbSoftwareInterrupt;
 		} else if constexpr ((lutFillIndex & thumbConditionalBranchMask) == thumbConditionalBranchBits) {
 			return &ARM946E<T>::thumbConditionalBranch<((lutFillIndex & 0b0000'1111'00) >> 2)>;
 		} else if constexpr ((lutFillIndex & thumbUnconditionalBranchMask) == thumbUnconditionalBranchBits) {
 			return &ARM946E<T>::thumbUnconditionalBranch;
+		} else if constexpr ((lutFillIndex & thumbBlxSuffixMask) == thumbBlxSuffixBits) {
+			return &ARM946E<T>::thumbBlxSuffix;
 		} else if constexpr ((lutFillIndex & thumbLongBranchLinkMask) == thumbLongBranchLinkBits) {
 			return &ARM946E<T>::thumbLongBranchLink<(bool)(lutFillIndex & 0b0000'1000'00)>;
 		}

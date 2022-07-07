@@ -290,6 +290,8 @@ public:
 				disassembledOpcode << "}";
 
 				return disassembledOpcode.str();
+			} else if ((lutIndex & thumbUndefined1Mask) == thumbUndefined1Bits) {
+				return "Undefined THUMB";
 			} else if ((lutIndex & thumbSoftwareInterruptMask) == thumbSoftwareInterruptBits) {
 				if (options.printOperandsHex) {
 					disassembledOpcode << "SWI" << " #0x" << std::hex << (opcode & 0x00FF);
@@ -316,22 +318,21 @@ public:
 				disassembledOpcode << jmpAddress;
 
 				return disassembledOpcode.str();
+			} else if ((lutIndex & thumbUndefined2Mask) == thumbUndefined2Bits) {
+				return "Undefined THUMB";
 			} else if ((lutIndex & thumbLongBranchLinkMask) == thumbLongBranchLinkBits) {
 				bool lowHigh = lutIndex & 0b0000'1000'00;
 
 				if (lowHigh) {
-					disassembledOpcode << "ADD " << getRegName(14) << ", " << getRegName(14) << ", #";
+					disassembledOpcode << "BL[suffix] #";
 					if (options.printOperandsHex)
 						disassembledOpcode << "0x" << std::hex;
 					disassembledOpcode << ((opcode & 0x7FF) << 1);
-
-					disassembledOpcode << "; BL " << getRegName(14);
 				} else {
-					disassembledOpcode << "ADD " << getRegName(14) << ", " << getRegName(15) << ", #";
+					disassembledOpcode << "BL[prefix] #";
 					if (options.printOperandsHex)
 						disassembledOpcode << "0x" << std::hex;
 					disassembledOpcode << ((i32)((u32)opcode << 21) >> 9);
-
 				}
 
 				return disassembledOpcode.str();
@@ -783,10 +784,14 @@ private:
 	static const u16 thumbMultipleLoadStoreBits = 0b1100'0000'00;
 	static const u16 thumbConditionalBranchMask = 0b1111'0000'00;
 	static const u16 thumbConditionalBranchBits = 0b1101'0000'00;
+	static const u16 thumbUndefined1Mask = 0b1111'1111'00;
+	static const u16 thumbUndefined1Bits = 0b1101'1110'00;
 	static const u16 thumbSoftwareInterruptMask = 0b1111'1111'00;
 	static const u16 thumbSoftwareInterruptBits = 0b1101'1111'00;
 	static const u16 thumbUnconditionalBranchMask = 0b1111'1000'00;
 	static const u16 thumbUnconditionalBranchBits = 0b1110'0000'00;
+	static const u16 thumbUndefined2Mask = 0b1111'1000'00;
+	static const u16 thumbUndefined2Bits = 0b1110'1000'00;
 	static const u16 thumbLongBranchLinkMask = 0b1111'0000'00;
 	static const u16 thumbLongBranchLinkBits = 0b1111'0000'00;
 };
