@@ -801,17 +801,11 @@ public:
 		u32 result = 0;
 		if constexpr (loadStore) {
 			if constexpr (shBits == 1) { // LDRH
-				result = rotateMisaligned(bus.template read<u16, false>(address, false), address);
+				result = bus.template read<u16, false>(address & ~1, false);
 			} else if constexpr (shBits == 2) { // LDRSB
 				result = ((i32)((u32)bus.template read<u8, false>(address, false) << 24) >> 24);
 			} else if constexpr (shBits == 3) { // LDRSH
-				result = rotateMisaligned(bus.template read<u16, false>(address, false), address);
-
-				if (address & 1) {
-					result = (i32)(result << 24) >> 24;
-				} else {
-					result = (i32)(result << 16) >> 16;
-				}
+				result = (i32)((u32)bus.template read<u16, false>(address & ~1, false) << 16) >> 16;
 			}
 		} else {
 			if constexpr (shBits == 1) { // STRH
@@ -1346,16 +1340,10 @@ public:
 			result = (i32)(result << 24) >> 24;
 			break;
 		case 2: // LDRH
-			result = rotateMisaligned(bus.template read<u16, false>(address, false), address);
+			result = bus.template read<u16, false>(address & ~1, false);
 			break;
 		case 3: // LDSH
-			result = rotateMisaligned(bus.template read<u16, false>(address, false), address);
-
-			if (address & 1) {
-				result = (i32)(result << 24) >> 24;
-			} else {
-				result = (i32)(result << 16) >> 16;
-			}
+			result = (i32)((u32)bus.template read<u16, false>(address & ~1, false) << 16) >> 16;
 			break;
 		}
 
@@ -1394,7 +1382,7 @@ public:
 		fetchOpcode();
 
 		if constexpr (loadStore) { // LDRH
-			reg.R[srcDestRegister] = rotateMisaligned(bus.template read<u16, false>(address, false), address);
+			reg.R[srcDestRegister] = bus.template read<u16, false>(address & ~1, false);
 
 			bus.iCycle(1);
 		} else { // STRH
