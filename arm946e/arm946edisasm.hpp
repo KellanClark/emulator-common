@@ -618,7 +618,9 @@ public:
 
 				return disassembledOpcode.str();
 			} else if ((lutIndex & armBranchMask) == armBranchBits) {
-				if (lutIndex & 0b0001'0000'0000) {
+				bool useThumb = lutIndex & 0b1'0000'0000'0000;
+				bool link = lutIndex & 0b0'0001'0000'0000;
+				if (link || useThumb) {
 					disassembledOpcode << "BL";
 				} else {
 					disassembledOpcode << "B";
@@ -626,6 +628,11 @@ public:
 				disassembledOpcode << conditionCode;
 
 				u32 jumpLocation = address + (((i32)((opcode & 0x00FFFFFF) << 8)) >> 6) + 8;
+				if (useThumb) {
+					disassembledOpcode << "X";
+					jumpLocation += 1;
+				}
+
 				if (options.printAddressesHex) {
 					disassembledOpcode << " #0x" << std::hex << jumpLocation;
 				} else {
@@ -754,7 +761,7 @@ private:
 	static const u32 armUndefined2Bits = 0b0'0110'0000'0001;
 	static const u32 armBlockDataTransferMask = 0b1'1110'0000'0000;
 	static const u32 armBlockDataTransferBits = 0b0'1000'0000'0000;
-	static const u32 armBranchMask = 0b1'1110'0000'0000;
+	static const u32 armBranchMask = 0b0'1110'0000'0000;
 	static const u32 armBranchBits = 0b0'1010'0000'0000;
 	static const u32 armCoprocessorDataTransferMask = 0b0'1110'0000'0000;
 	static const u32 armCoprocessorDataTransferBits = 0b0'1100'0000'0000;

@@ -997,13 +997,15 @@ public:
 		}
 	}
 
-	template <bool link> void branch(u32 opcode) {
+	template <bool useThumb, bool linkThumb> void branch(u32 opcode) {
 		u32 address = reg.R[15] + (((i32)((opcode & 0x00FFFFFF) << 8)) >> 6);
 		fetchOpcode();
 
-		if constexpr (link)
+		if constexpr (linkThumb || useThumb)
 			reg.R[14] = reg.R[15] - 8;
 		reg.R[15] = address;
+		if constexpr (useThumb && linkThumb)
+			reg.thumbMode = true;
 		flushPipeline();
 	}
 
@@ -1603,7 +1605,7 @@ public:
 	static const u32 armUndefined2Bits = 0b0'0110'0000'0001;
 	static const u32 armBlockDataTransferMask = 0b1'1110'0000'0000;
 	static const u32 armBlockDataTransferBits = 0b0'1000'0000'0000;
-	static const u32 armBranchMask = 0b1'1110'0000'0000;
+	static const u32 armBranchMask = 0b0'1110'0000'0000;
 	static const u32 armBranchBits = 0b0'1010'0000'0000;
 	static const u32 armCoprocessorDataTransferMask = 0b0'1110'0000'0000;
 	static const u32 armCoprocessorDataTransferBits = 0b0'1100'0000'0000;
@@ -1686,7 +1688,7 @@ public:
 		} else if constexpr ((lutFillIndex & armBlockDataTransferMask) == armBlockDataTransferBits) {
 			return &ARM946E<T>::blockDataTransfer<(bool)(lutFillIndex & 0b0001'0000'0000), (bool)(lutFillIndex & 0b0000'1000'0000), (bool)(lutFillIndex & 0b0000'0100'0000), (bool)(lutFillIndex & 0b0000'0010'0000), (bool)(lutFillIndex & 0b0000'0001'0000)>;
 		} else if constexpr ((lutFillIndex & armBranchMask) == armBranchBits) {
-			return &ARM946E<T>::branch<(bool)(lutFillIndex & 0b0001'0000'0000)>;
+			return &ARM946E<T>::branch<false, (bool)(lutFillIndex & 0b0001'0000'0000)>;
 		} else if constexpr ((lutFillIndex & armSoftwareInterruptMask) == armSoftwareInterruptBits) {
 			return &ARM946E<T>::softwareInterrupt;
 		}
@@ -1696,7 +1698,9 @@ public:
 
 	template <std::size_t lutFillIndex>
 	constexpr static lutEntry decode2() {
-		//
+		if constexpr ((lutFillIndex & armBranchMask) == armBranchBits) {
+			return &ARM946E<T>::branch<true, (bool)(lutFillIndex & 0b0001'0000'0000)>;
+		}
 
 		return &ARM946E<T>::unknownOpcodeArm;
 	}
