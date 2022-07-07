@@ -70,9 +70,9 @@ public:
 				if (checkCondition(conditionCode)) {
 					u32 lutIndex = ((pipelineOpcode3 & 0x0FF00000) >> 16) | ((pipelineOpcode3 & 0x000000F0) >> 4);
 
-					if (conditionCode == 0xF) {
+					if (conditionCode == 0xF) { [[unlikely]]
 						(this->*armLUT2[lutIndex])(pipelineOpcode3);
-					} else { [[likely]]
+					} else {
 						(this->*armLUT[lutIndex])(pipelineOpcode3);
 					}
 				} else {
