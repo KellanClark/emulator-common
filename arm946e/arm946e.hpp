@@ -831,6 +831,7 @@ public:
 			bus.iCycle(1);
 
 			if (srcDestRegister == 15) {
+				reg.thumbMode = result & 1;
 				flushPipeline();
 			}
 		}
@@ -942,8 +943,6 @@ public:
 
 			if (emptyRegList) { // TODO: find timings for empty list
 				reg.R[baseRegister] = writeBackAddress;
-				reg.R[15] = bus.template read<u32, false>(address, false);
-				flushPipeline();
 			} else {
 				for (int i = 0; i < 16; i++) {
 					if (opcode & (1 << i)) {
@@ -967,21 +966,17 @@ public:
 			}
 		} else { // STM
 			if (emptyRegList) {
-				bus.template write<u32>(address, reg.R[15], false);
 				reg.R[baseRegister] = writeBackAddress;
 			} else {
 				for (int i = 0; i < 16; i++) {
 					if (opcode & (1 << i)) {
 						bus.template write<u32>(address, reg.R[i], !firstReadWrite);
 						address += 4;
-
-						if (firstReadWrite) {
-							if constexpr (writeBack)
-								reg.R[baseRegister] = writeBackAddress;
-							firstReadWrite = false;
-						}
 					}
 				}
+
+				if constexpr (writeBack)
+					reg.R[baseRegister] = writeBackAddress;
 			}
 
 			nextFetchType = false;
@@ -991,7 +986,7 @@ public:
 			bankRegisters(oldMode, false);
 			reg.mode = oldMode;
 
-			if (((opcode & (1 << 15)) || emptyRegList) && loadStore) {
+			if ((opcode & (1 << 15)) && loadStore) {
 				leaveMode();
 			}
 		}
@@ -1007,6 +1002,28 @@ public:
 		if constexpr (useThumb && linkThumb)
 			reg.thumbMode = true;
 		flushPipeline();
+	}
+
+	template <bool loadStore> void armCoprocessorRegisterTransfer(u32 opcode) {
+		u32 copOpc = (opcode >> 21) & 0x7;
+		u32 copSrcDestReg = (opcode >> 16) & 0xF;
+		u32 srcDestRegister = (opcode >> 12) & 0xF;
+		u32 copNum = (opcode >> 8) & 0xF;
+		u32 copOpcType = (opcode >> 5) & 0x7;
+		u32 copOpReg = opcode & 0xF;
+		fetchOpcode();
+
+		if (loadStore) { // MRC
+			u32 result = bus.coprocessorRead(copNum, copOpc, copSrcDestReg, copOpReg, copOpcType);
+
+			if (srcDestRegister == 15) {
+				reg.CPSR = (reg.CPSR & ~0xF0000000) | (result & 0xF0000000);
+			} else {
+				reg.R[srcDestRegister] = result;
+			}
+		} else { // MCR
+			bus.coprocessorWrite(copNum, copOpc, copSrcDestReg, copOpReg, copOpcType, reg.R[srcDestRegister]);
+		}
 	}
 
 	void softwareInterrupt(u32 opcode) { // TODO: Proper timings for exceptions
@@ -1443,10 +1460,7 @@ public:
 			reg.R[13] = writeBackAddress + (pcLr * 4);
 			fetchOpcode(); // Writeback really should be inside the main loop but this works
 
-			if (emptyRegList) {
-				reg.R[15] = bus.template read<u32, false>(address, false);
-				flushPipeline();
-			} else {
+			if (!emptyRegList) {
 				for (int i = 0; i < 8; i++) {
 					if (opcode & (1 << i)) {
 						reg.R[i] = bus.template read<u32, false>(address, !firstReadWrite);
@@ -1469,9 +1483,7 @@ public:
 			reg.R[13] = address;
 			fetchOpcode();
 
-			if (emptyRegList) {
-				bus.template write<u32>(address, reg.R[15] + 2, false);
-			} else {
+			if (!emptyRegList) {
 				for (int i = 0; i < 8; i++) {
 					if (opcode & (1 << i)) {
 						bus.template write<u32>(address, reg.R[i], !firstReadWrite);
@@ -1499,8 +1511,6 @@ public:
 		if constexpr (loadStore) { // LDMIA!
 			if (emptyRegList) {
 				reg.R[baseReg] = writeBackAddress;
-				reg.R[15] = bus.template read<u32, false>(address, true);
-				flushPipeline();
 			} else {
 				for (int i = 0; i < 8; i++) {
 					if (opcode & (1 << i)) {
@@ -1518,20 +1528,16 @@ public:
 			}
 		} else { // STMIA!
 			if (emptyRegList) {
-				bus.template write<u32>(address, reg.R[15], false);
 				reg.R[baseReg] = writeBackAddress;
 			} else {
 				for (int i = 0; i < 8; i++) {
 					if (opcode & (1 << i)) {
 						bus.template write<u32>(address, reg.R[i], !firstReadWrite);
 						address += 4;
-
-						if (firstReadWrite) {
-							reg.R[baseReg] = writeBackAddress;
-							firstReadWrite = false;
-						}
 					}
 				}
+
+				reg.R[baseReg] = writeBackAddress;
 			}
 			nextFetchType = false;
 		}
@@ -1718,6 +1724,8 @@ public:
 			return &ARM946E<T>::blockDataTransfer<(bool)(lutFillIndex & 0b0001'0000'0000), (bool)(lutFillIndex & 0b0000'1000'0000), (bool)(lutFillIndex & 0b0000'0100'0000), (bool)(lutFillIndex & 0b0000'0010'0000), (bool)(lutFillIndex & 0b0000'0001'0000)>;
 		} else if constexpr ((lutFillIndex & armBranchMask) == armBranchBits) {
 			return &ARM946E<T>::branch<false, (bool)(lutFillIndex & 0b0001'0000'0000)>;
+		} else if constexpr ((lutFillIndex & armCoprocessorRegisterTransferMask) == armCoprocessorRegisterTransferBits) {
+			return &ARM946E<T>::armCoprocessorRegisterTransfer<(bool)(lutFillIndex & 0b0000'0001'0000)>;
 		} else if constexpr ((lutFillIndex & armSoftwareInterruptMask) == armSoftwareInterruptBits) {
 			return &ARM946E<T>::softwareInterrupt;
 		}

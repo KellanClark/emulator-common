@@ -623,6 +623,16 @@ public:
 				}
 
 				return disassembledOpcode.str();
+			} else if ((lutIndex & armCoprocessorRegisterTransferMask) == armCoprocessorRegisterTransferBits) {
+				bool loadStore = lutIndex & 0b0000'0001'0000;
+
+				disassembledOpcode << (loadStore ? "MRC" : "MCR") << conditionCode;
+				disassembledOpcode << " p" << ((opcode >> 8) & 0xF);
+				disassembledOpcode << ", #" << ((opcode >> 21) & 0x7);
+				disassembledOpcode << ", " << getRegName((opcode >> 12) & 0xF);
+				disassembledOpcode << ", c" << ((opcode >> 16) & 0xF);
+				disassembledOpcode << ", c" << (opcode & 0xF);
+				disassembledOpcode << ", #" << ((opcode >> 5) & 0x7);
 			} else if ((lutIndex & armSoftwareInterruptMask) == armSoftwareInterruptBits) {
 				if (options.printAddressesHex) {
 					disassembledOpcode << "SWI" << conditionCode << " #0x" << std::hex << (opcode & 0x00FFFFFF);
