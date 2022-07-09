@@ -201,7 +201,10 @@ public:
 		nextFetchType = true;
 	}
 
-	void flushPipeline() {
+	void flushPipeline(bool updateThumb = false) {
+		if (updateThumb)
+			reg.thumbMode = reg.R[15] & 1;
+
 		if (reg.thumbMode) {
 			reg.R[15] = (reg.R[15] & ~1) + 4;
 			pipelineOpcode3 = bus.template read<u16, true>(reg.R[15] - 4, false);
@@ -754,15 +757,13 @@ public:
 
 	template <bool link>
 	void branchExchange(u32 opcode) {
-		bool newThumb = reg.R[opcode & 0xF] & 1;
-		u32 newAddress = reg.R[opcode & 0xF] & (newThumb ? ~1 : ~3);
+		u32 newAddress = reg.R[opcode & 0xF];
 		fetchOpcode();
 
 		if constexpr (link)
 			reg.R[14] = reg.R[15] - 8;
-		reg.thumbMode = newThumb;
 		reg.R[15] = newAddress;
-		flushPipeline();
+		flushPipeline(true);
 	}
 
 	void countLeadingZeros(u32 opcode) {
@@ -778,8 +779,11 @@ public:
 	template <bool prePostIndex, bool upDown, bool immediateOffset, bool writeBack, bool loadStore, int shBits> void halfwordDataTransfer(u32 opcode)  {
 		auto baseRegister = (opcode >> 16) & 0xF;
 		auto srcDestRegister = (opcode >> 12) & 0xF;
+		constexpr bool ldrd = !loadStore && (shBits == 2); // Because this little POS instruction just *has* to be special
 		if ((baseRegister == 15) && writeBack)
 			unknownOpcodeArm(opcode, "r15 Operand With Writeback");
+		if (!loadStore && (shBits >= 2) && (srcDestRegister & 1))
+			unknownOpcodeArm(opcode, "LDRD/STRD With Odd Register");
 
 		u32 offset;
 		if constexpr (immediateOffset) {
@@ -799,6 +803,7 @@ public:
 		fetchOpcode();
 
 		u32 result = 0;
+		u32 result2 = 0;
 		if constexpr (loadStore) {
 			if constexpr (shBits == 1) { // LDRH
 				result = bus.template read<u16, false>(address & ~1, false);
@@ -810,6 +815,12 @@ public:
 		} else {
 			if constexpr (shBits == 1) { // STRH
 				bus.template write<u16>(address, (u16)reg.R[srcDestRegister], false);
+			} else if constexpr (shBits == 2) { // LDRD
+				result = bus.template read<u32, false>(address & ~3, false);
+				result2 = bus.template read<u32, false>((address + 4) & ~3, false);
+			} else if constexpr (shBits == 3) { // STRD
+				bus.template write<u32>(address, reg.R[srcDestRegister], false);
+				bus.template write<u32>(address + 4, reg.R[srcDestRegister + 1], false);
 			}
 
 			nextFetchType = false;
@@ -824,15 +835,26 @@ public:
 			} else {
 				address -= offset;
 			}
-			reg.R[baseRegister] = address;
+
+			if constexpr (!ldrd)
+				reg.R[baseRegister] = address;
 		}
+
 		if constexpr (loadStore) {
 			reg.R[srcDestRegister] = result;
 			bus.iCycle(1);
 
 			if (srcDestRegister == 15) {
-				reg.thumbMode = result & 1;
-				flushPipeline();
+				flushPipeline(true);
+			}
+		} else if constexpr (ldrd) {
+			nextFetchType = true;
+			reg.R[srcDestRegister] = result;
+			reg.R[baseRegister] = address;
+			reg.R[srcDestRegister + 1] = result2;
+
+			if (srcDestRegister == 14) { // 14 will always load r15
+				flushPipeline(); // Not `true` because https://discord.com/channels/465585922579103744/667132407262216272/827625956755636266
 			}
 		}
 	}
@@ -890,7 +912,7 @@ public:
 			bus.iCycle(1);
 
 			if (srcDestRegister == 15) {
-				flushPipeline();
+				flushPipeline(true);
 			}
 		}
 	}
@@ -938,18 +960,11 @@ public:
 
 		bool firstReadWrite = true; // TODO: Interleave fetches with register writes
 		if constexpr (loadStore) { // LDM
-			if constexpr (writeBack)
-				reg.R[baseRegister] = writeBackAddress;
-
 			if (emptyRegList) { // TODO: find timings for empty list
 				reg.R[baseRegister] = writeBackAddress;
 			} else {
 				for (int i = 0; i < 16; i++) {
 					if (opcode & (1 << i)) {
-						if (firstReadWrite) {
-							if constexpr (writeBack)
-								reg.R[baseRegister] = writeBackAddress;
-						}
 
 						reg.R[i] = bus.template read<u32, false>(address, !firstReadWrite);
 						address += 4;
@@ -960,8 +975,19 @@ public:
 				}
 				bus.iCycle(1);
 
+				if constexpr (writeBack) {
+					if (opcode & (baseRegister << 1)) { // Base register is in rlist
+						// > writeback if Rb is "the ONLY register, or NOT the LAST register" in Rlist
+						if ((std::popcount(opcode & 0xFFFF) == 1) || ((15 - std::countl_zero((u16)opcode)) != baseRegister)) {
+							reg.R[baseRegister] = writeBackAddress;
+						}
+					} else {
+						reg.R[baseRegister] = writeBackAddress;
+					}
+				}
+
 				if (opcode & (1 << 15)) { // Treat r15 loads as jumps
-					flushPipeline();
+					flushPipeline(true);
 				}
 			}
 		} else { // STM
@@ -972,6 +998,9 @@ public:
 					if (opcode & (1 << i)) {
 						bus.template write<u32>(address, reg.R[i], !firstReadWrite);
 						address += 4;
+
+						if (firstReadWrite)
+							firstReadWrite = false;
 					}
 				}
 
@@ -1292,16 +1321,14 @@ public:
 		case 2: // MOV
 			result = reg.R[operand2];
 			break;
-		case 3:{ // BX
-			bool newThumb = reg.R[operand2] & 1;
+		case 3:{ // BX;
 			u32 newAddress = reg.R[operand2];
 			if (opFlag1) // BLX
 				reg.R[14] = (reg.R[15] - 2) | 1;
 			fetchOpcode();
 
-			reg.thumbMode = newThumb;
 			reg.R[15] = newAddress;
-			flushPipeline();
+			flushPipeline(true);
 			} return;
 		}
 		fetchOpcode();
@@ -1473,7 +1500,7 @@ public:
 				bus.iCycle(1);
 				if constexpr (pcLr) {
 					reg.R[15] = bus.template read<u32, false>(address, true);
-					flushPipeline();
+					flushPipeline(true);
 				}
 			}
 		} else { // PUSH/STMDB!
@@ -1628,6 +1655,10 @@ public:
 	static const u32 armBranchExchangeBits = 0b0'0001'0010'0001;
 	static const u32 armCountLeadingZerosMask = 0b1'1111'1111'1111;
 	static const u32 armCountLeadingZerosBits = 0b0'0001'0110'0001;
+	static const u32 armDspAddSubtractBits = 0b1'1111'1001'1111;
+	static const u32 armDspAddSubtractMask = 0b0'0001'0000'0101;
+	static const u32 armDspMultiplyBits = 0b1'1111'1001'1001;
+	static const u32 armDspMultiplyMask = 0b0'0001'0000'1000;
 	static const u32 armHalfwordDataTransferMask = 0b1'1110'0000'1001;
 	static const u32 armHalfwordDataTransferBits = 0b0'0000'0000'1001;
 	static const u32 armSingleDataTransferMask = 0b1'1100'0000'0000;

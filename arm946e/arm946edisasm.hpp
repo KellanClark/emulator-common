@@ -455,18 +455,34 @@ public:
 				int shBits = (lutIndex & 0b0000'0000'0110) >> 1;
 
 				disassembledOpcode << (loadStore ? "LDR" : "STR") << conditionCode;
-				switch (shBits) {
-				case 0:
-					return "Undefined";
-				case 1:
-					disassembledOpcode << "H";
-					break;
-				case 2:
-					disassembledOpcode << "SB";
-					break;
-				case 3:
-					disassembledOpcode << "SH";
-					break;
+				if (loadStore) {
+					switch (shBits) {
+					case 0:
+						return "Undefined";
+					case 1:
+						disassembledOpcode << "LDRH";
+						break;
+					case 2:
+						disassembledOpcode << "LDRSB";
+						break;
+					case 3:
+						disassembledOpcode << "LDRSH";
+						break;
+					}
+				} else {
+					switch (shBits) {
+					case 0:
+						return "Undefined";
+					case 1:
+						disassembledOpcode << "STRH";
+						break;
+					case 2:
+						disassembledOpcode << "LDRD";
+						break;
+					case 3:
+						disassembledOpcode << "STRD";
+						break;
+					}
 				}
 
 				disassembledOpcode << " " << getRegName((opcode >> 12) & 0xF) << ", [" << getRegName((opcode >> 16) & 0xF);
