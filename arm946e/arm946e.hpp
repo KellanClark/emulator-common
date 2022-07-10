@@ -776,6 +776,41 @@ public:
 		fetchOpcode();
 	}
 
+	template <int op> void dspAddSubtract(u32 opcode) {
+		auto destinationReg = (opcode >> 12) & 0xF;
+		if (destinationReg == 15)
+			unknownOpcodeArm(opcode, "dsp r15 as destination");
+
+		i64 operand = (i64)((i32)reg.R[(opcode >> 16) & 0xF]);
+		if constexpr (op & 2) { // QDADD/QDSUB
+			operand *= 2;
+
+			if ((operand < INT_MIN) || (operand > INT_MAX))
+				reg.flagQ = true;
+			operand = std::clamp(operand, (i64)INT_MIN, (i64)INT_MAX);
+		}
+
+		i64 result = 0;
+		if constexpr (op & 1) { // QSUB
+			result = (i64)((i32)reg.R[opcode & 0xF]) - operand;
+		} else { // QADD
+			result = (i64)((i32)reg.R[opcode & 0xF]) + operand;
+		}
+		if ((result < INT_MIN) || (result > INT_MAX))
+			reg.flagQ = true;
+
+		reg.R[destinationReg] = (u32)std::clamp(result, (i64)INT_MIN, (i64)INT_MAX);
+		fetchOpcode();
+	}
+
+	template <int op, bool y, bool x> void dspMultiply(u32 opcode) {
+		auto destinationReg = (opcode >> 12) & 0xF;
+		if (destinationReg == 15)
+			unknownOpcodeArm(opcode, "dsp r15 as destination");
+
+		fetchOpcode();
+	}
+
 	template <bool prePostIndex, bool upDown, bool immediateOffset, bool writeBack, bool loadStore, int shBits> void halfwordDataTransfer(u32 opcode)  {
 		auto baseRegister = (opcode >> 16) & 0xF;
 		auto srcDestRegister = (opcode >> 12) & 0xF;
@@ -1655,10 +1690,10 @@ public:
 	static const u32 armBranchExchangeBits = 0b0'0001'0010'0001;
 	static const u32 armCountLeadingZerosMask = 0b1'1111'1111'1111;
 	static const u32 armCountLeadingZerosBits = 0b0'0001'0110'0001;
-	static const u32 armDspAddSubtractBits = 0b1'1111'1001'1111;
-	static const u32 armDspAddSubtractMask = 0b0'0001'0000'0101;
-	static const u32 armDspMultiplyBits = 0b1'1111'1001'1001;
-	static const u32 armDspMultiplyMask = 0b0'0001'0000'1000;
+	static const u32 armDspAddSubtractMask = 0b1'1111'1001'1111;
+	static const u32 armDspAddSubtractBits = 0b0'0001'0000'0101;
+	static const u32 armDspMultiplyMask = 0b1'1111'1001'1001;
+	static const u32 armDspMultiplyBits = 0b0'0001'0000'1000;
 	static const u32 armHalfwordDataTransferMask = 0b1'1110'0000'1001;
 	static const u32 armHalfwordDataTransferBits = 0b0'0000'0000'1001;
 	static const u32 armSingleDataTransferMask = 0b1'1100'0000'0000;
@@ -1743,6 +1778,10 @@ public:
 			return &ARM946E<T>::branchExchange<(bool)(lutFillIndex & 0b0000'0100'0010)>;
 		} else if constexpr ((lutFillIndex & armCountLeadingZerosMask) == armCountLeadingZerosBits) {
 			return &ARM946E<T>::countLeadingZeros;
+		} else if constexpr ((lutFillIndex & armDspAddSubtractMask) == armDspAddSubtractBits) {
+			return &ARM946E<T>::dspAddSubtract<((lutFillIndex & 0b0000'0110'0000) >> 5)>;
+		} else if constexpr ((lutFillIndex & armDspMultiplyMask) == armDspMultiplyBits) {
+			return &ARM946E<T>::dspMultiply<((lutFillIndex & 0b0000'0110'0000) >> 5), (bool)(lutFillIndex & 0b0000'0000'0100), (bool)(lutFillIndex & 0b0000'0000'0010)>;
 		} else if constexpr ((lutFillIndex & armHalfwordDataTransferMask) == armHalfwordDataTransferBits) {
 			return &ARM946E<T>::halfwordDataTransfer<(bool)(lutFillIndex & 0b0001'0000'0000), (bool)(lutFillIndex & 0b0000'1000'0000), (bool)(lutFillIndex & 0b0000'0100'0000), (bool)(lutFillIndex & 0b0000'0010'0000), (bool)(lutFillIndex & 0b0000'0001'0000), ((lutFillIndex & 0b0000'0000'0110) >> 1)>;
 		} else if constexpr ((lutFillIndex & armDataProcessingMask) == armDataProcessingBits) {

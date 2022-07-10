@@ -446,7 +446,35 @@ public:
 				disassembledOpcode << "CLZ" << conditionCode << " " << getRegName((opcode >> 12) & 0xF) << ", " << getRegName(opcode & 0xF);
 
 				return disassembledOpcode.str();
-			} else if ((lutIndex & armHalfwordDataTransferMask) == armHalfwordDataTransferBits) {
+			} else if ((lutIndex & armDspAddSubtractMask) == armDspAddSubtractBits) {
+				int op = (lutIndex & 0b0000'0110'0000) >> 5;
+
+				switch (op) {
+				case 0: disassembledOpcode << "QADD"; break;
+				case 1: disassembledOpcode << "QSUB"; break;
+				case 2: disassembledOpcode << "QDADD"; break;
+				case 3: disassembledOpcode << "QDSUB"; break;
+				}
+
+				disassembledOpcode << conditionCode << " " << getRegName((opcode >> 12) & 0xF) << ", " << getRegName(opcode & 0xF) << ", " << getRegName((opcode >> 16) & 0xF);
+
+				return disassembledOpcode.str();
+			} /*else if ((lutIndex & armDspMultiplyMask) == armDspMultiplyBits) {
+				int op = (lutIndex & 0b0000'0110'0000) >> 5;
+				bool y = lutIndex & 0b0000'0000'0100;
+				bool x = lutIndex & 0b0000'0000'0010;
+
+				switch (op) {
+				case 0: disassembledOpcode << "SMLA"; break;
+				case 1: disassembledOpcode << ""; break;
+				case 2: disassembledOpcode << "SMLAL"; break;
+				case 3: disassembledOpcode << "SMUL"; break;
+				}
+
+				disassembledOpcode << (op == 1 ? (x ? "SMULW" : "SMLAW") : (x ? "T" : "B")) << (y ? "T" : "B") << conditionCode << " " << getRegName((opcode >> 12) & 0xF) << ", " << getRegName(opcode & 0xF) << ", " << getRegName((opcode >> 16) & 0xF);
+
+				return disassembledOpcode.str();
+			}*/ else if ((lutIndex & armHalfwordDataTransferMask) == armHalfwordDataTransferBits) {
 				bool prePostIndex = lutIndex & 0b0001'0000'0000;
 				bool upDown = lutIndex & 0b0000'1000'0000;
 				bool immediateOffset = lutIndex & 0b0000'0100'0000;
@@ -788,6 +816,10 @@ private:
 	static const u32 armBranchExchangeBits = 0b0'0001'0010'0001;
 	static const u32 armCountLeadingZerosMask = 0b1'1111'1111'1111;
 	static const u32 armCountLeadingZerosBits = 0b0'0001'0110'0001;
+	static const u32 armDspAddSubtractMask = 0b1'1111'1001'1111;
+	static const u32 armDspAddSubtractBits = 0b0'0001'0000'0101;
+	static const u32 armDspMultiplyMask = 0b1'1111'1001'1001;
+	static const u32 armDspMultiplyBits = 0b0'0001'0000'1000;
 	static const u32 armHalfwordDataTransferMask = 0b1'1110'0000'1001;
 	static const u32 armHalfwordDataTransferBits = 0b0'0000'0000'1001;
 	static const u32 armSingleDataTransferMask = 0b1'1100'0000'0000;
