@@ -796,6 +796,7 @@ public:
 		} else { // QADD
 			result = (i64)((i32)reg.R[opcode & 0xF]) + operand;
 		}
+
 		if ((result < INT_MIN) || (result > INT_MAX))
 			reg.flagQ = true;
 
@@ -804,10 +805,43 @@ public:
 	}
 
 	template <int op, bool y, bool x> void dspMultiply(u32 opcode) {
-		auto destinationReg = (opcode >> 12) & 0xF;
+		auto destinationReg = (opcode >> 16) & 0xF;
+		auto destinationRegLow = (opcode >> 12) & 0xF;
 		if (destinationReg == 15)
 			unknownOpcodeArm(opcode, "dsp r15 as destination");
 
+		i64 operand1 = (i64)((i16)((u16)(x ? (reg.R[opcode & 0xF] >> 16) : reg.R[opcode & 0xF])));
+		i64 operand2 = (i64)((i16)((u16)(y ? (reg.R[(opcode >> 8) & 0xF] >> 16) : reg.R[(opcode >> 8) & 0xF])));
+		i64 result = 0;
+		switch (op) {
+		case 0: // SMLA
+			result = (operand1 * operand2) + (i64)((i32)reg.R[(opcode >> 12) & 0xF]);
+			break;
+		case 1:
+			operand1 = (i64)((i32)reg.R[opcode & 0xF]);
+
+			if constexpr (x) { // SMULW
+				result = ((operand1 * operand2) >> 16) + (i64)((i32)reg.R[(opcode >> 12) & 0xF]);
+			} else { // SMLAW
+				result = (operand1 * operand2) >> 16;
+			}
+			break;
+		case 2: // SMLAL
+			result = (operand1 * operand2) + (i64)(((u64)reg.R[destinationReg] << 32) | (u64)reg.R[destinationRegLow]);
+
+			reg.R[destinationReg] = (u32)(result >> 32);
+			reg.R[destinationRegLow] = (u32)result;
+			fetchOpcode();
+			return;
+		case 3: // SMUL
+			result = operand1 * operand2;
+			break;
+		}
+
+		if ((result < INT_MIN) || (result > INT_MAX))
+			reg.flagQ = true;
+
+		reg.R[destinationReg] = (u32)result; // The result doesn't get saturated
 		fetchOpcode();
 	}
 

@@ -459,22 +459,50 @@ public:
 				disassembledOpcode << conditionCode << " " << getRegName((opcode >> 12) & 0xF) << ", " << getRegName(opcode & 0xF) << ", " << getRegName((opcode >> 16) & 0xF);
 
 				return disassembledOpcode.str();
-			} /*else if ((lutIndex & armDspMultiplyMask) == armDspMultiplyBits) {
+			} else if ((lutIndex & armDspMultiplyMask) == armDspMultiplyBits) {
 				int op = (lutIndex & 0b0000'0110'0000) >> 5;
 				bool y = lutIndex & 0b0000'0000'0100;
 				bool x = lutIndex & 0b0000'0000'0010;
 
 				switch (op) {
-				case 0: disassembledOpcode << "SMLA"; break;
-				case 1: disassembledOpcode << ""; break;
-				case 2: disassembledOpcode << "SMLAL"; break;
-				case 3: disassembledOpcode << "SMUL"; break;
+				case 0:
+					disassembledOpcode << "SMLA" << (x ? "T" : "B") << (y ? "T" : "B") << conditionCode;
+					disassembledOpcode << " " << getRegName((opcode >> 16) & 0xF);
+					disassembledOpcode << ", " << getRegName(opcode & 0xF);
+					disassembledOpcode << ", " << getRegName((opcode >> 8) & 0xF);
+					disassembledOpcode << ", " << getRegName((opcode >> 12) & 0xF);
+					break;
+				case 1:
+					if (x) {
+						disassembledOpcode << "SMULW" << (y ? "T" : "B") << conditionCode;
+						disassembledOpcode << " " << getRegName((opcode >> 16) & 0xF);
+						disassembledOpcode << ", " << getRegName(opcode & 0xF);
+						disassembledOpcode << ", " << getRegName((opcode >> 8) & 0xF);
+					} else {
+						disassembledOpcode << "SMLAW" << (y ? "T" : "B") << conditionCode;
+						disassembledOpcode << " " << getRegName((opcode >> 16) & 0xF);
+						disassembledOpcode << ", " << getRegName(opcode & 0xF);
+						disassembledOpcode << ", " << getRegName((opcode >> 8) & 0xF);
+						disassembledOpcode << ", " << getRegName((opcode >> 12) & 0xF);
+					}
+					break;
+				case 2:
+					disassembledOpcode << "SMLAL" << (x ? "T" : "B") << (y ? "T" : "B") << conditionCode;
+					disassembledOpcode << " " << getRegName((opcode >> 12) & 0xF);
+					disassembledOpcode << ", " << getRegName((opcode >> 16) & 0xF);
+					disassembledOpcode << ", " << getRegName(opcode & 0xF);
+					disassembledOpcode << ", " << getRegName((opcode >> 8) & 0xF);
+					break;
+				case 3:
+					disassembledOpcode << "SMUL" << (x ? "T" : "B") << (y ? "T" : "B") << conditionCode;
+					disassembledOpcode << " " << getRegName((opcode >> 16) & 0xF);
+					disassembledOpcode << ", " << getRegName(opcode & 0xF);
+					disassembledOpcode << ", " << getRegName((opcode >> 8) & 0xF);
+					break;
 				}
 
-				disassembledOpcode << (op == 1 ? (x ? "SMULW" : "SMLAW") : (x ? "T" : "B")) << (y ? "T" : "B") << conditionCode << " " << getRegName((opcode >> 12) & 0xF) << ", " << getRegName(opcode & 0xF) << ", " << getRegName((opcode >> 16) & 0xF);
-
 				return disassembledOpcode.str();
-			}*/ else if ((lutIndex & armHalfwordDataTransferMask) == armHalfwordDataTransferBits) {
+			} else if ((lutIndex & armHalfwordDataTransferMask) == armHalfwordDataTransferBits) {
 				bool prePostIndex = lutIndex & 0b0001'0000'0000;
 				bool upDown = lutIndex & 0b0000'1000'0000;
 				bool immediateOffset = lutIndex & 0b0000'0100'0000;
@@ -482,7 +510,6 @@ public:
 				bool loadStore = lutIndex & 0b0000'0001'0000;
 				int shBits = (lutIndex & 0b0000'0000'0110) >> 1;
 
-				disassembledOpcode << (loadStore ? "LDR" : "STR") << conditionCode;
 				if (loadStore) {
 					switch (shBits) {
 					case 0:
