@@ -993,6 +993,23 @@ public:
 		flushPipeline();
 	}
 
+	// This is just barely stubbed to pass a test
+	template <bool loadStore> void armCoprocessorRegisterTransfer(u32 opcode) {
+		u32 copOpc = (opcode >> 21) & 0x7;
+		u32 copSrcDestReg = (opcode >> 16) & 0xF;
+		u32 srcDestRegister = (opcode >> 12) & 0xF;
+		u32 copNum = (opcode >> 8) & 0xF;
+		u32 copOpcType = (opcode >> 5) & 0x7;
+		u32 copOpReg = opcode & 0xF;
+
+		if (copNum == 14) {
+			fetchOpcode();
+		} else {
+			undefined(opcode);
+			return;
+		}
+	}
+
 	void softwareInterrupt(u32 opcode) { // TODO: Proper timings for exceptions
 		fetchOpcode();
 		bankRegisters(MODE_SUPERVISOR, true);
@@ -1576,10 +1593,16 @@ public:
 	}
 
 	/* Generate Instruction LUTs */
-	static const u32 armDataProcessingMask = 0b1100'0000'0000;
-	static const u32 armDataProcessingBits = 0b0000'0000'0000;
 	static const u32 armUndefined1Mask = 0b1111'1011'0000;
 	static const u32 armUndefined1Bits = 0b0011'0000'0000;
+	static const u32 armUndefined2Mask = 0b1110'0000'0001;
+	static const u32 armUndefined2Bits = 0b0110'0000'0001;
+	static const u32 armUndefined3Mask = 0b1'1111'1111'1111;
+	static const u32 armUndefined3Bits = 0b0'0001'0110'0001;
+	static const u32 armUndefined4Mask = 0b1'1111'1001'1111;
+	static const u32 armUndefined4Bits = 0b0'0001'0000'0101;
+	static const u32 armDataProcessingMask = 0b1100'0000'0000;
+	static const u32 armDataProcessingBits = 0b0000'0000'0000;
 	static const u32 armMultiplyMask = 0b1111'1100'1111;
 	static const u32 armMultiplyBits = 0b0000'0000'1001;
 	static const u32 armMultiplyLongMask = 0b1111'1000'1111;
@@ -1598,8 +1621,6 @@ public:
 	static const u32 armHalfwordDataTransferBits = 0b0000'0000'1001;
 	static const u32 armSingleDataTransferMask = 0b1100'0000'0000;
 	static const u32 armSingleDataTransferBits = 0b0100'0000'0000;
-	static const u32 armUndefined2Mask = 0b1110'0000'0001;
-	static const u32 armUndefined2Bits = 0b0110'0000'0001;
 	static const u32 armBlockDataTransferMask = 0b1110'0000'0000;
 	static const u32 armBlockDataTransferBits = 0b1000'0000'0000;
 	static const u32 armBranchMask = 0b1110'0000'0000;
@@ -1662,6 +1683,12 @@ public:
 	constexpr static lutEntry decode() {
 		if constexpr ((lutFillIndex & armUndefined1Mask) == armUndefined1Bits) {
 			return &ARM7TDMI<T>::undefined;
+		} else if constexpr ((lutFillIndex & armUndefined2Mask) == armUndefined2Bits) {
+			return &ARM7TDMI<T>::undefined;
+		} else if constexpr ((lutFillIndex & armUndefined3Mask) == armUndefined3Bits) {
+			return &ARM7TDMI<T>::undefined;
+		} else if constexpr ((lutFillIndex & armUndefined4Mask) == armUndefined4Bits) {
+			return &ARM7TDMI<T>::undefined;
 		} else if constexpr ((lutFillIndex & armMultiplyMask) == armMultiplyBits) {
 			return &ARM7TDMI<T>::multiply<(bool)(lutFillIndex & 0b0000'0010'0000), (bool)(lutFillIndex & 0b0000'0001'0000)>;
 		} else if constexpr ((lutFillIndex & armMultiplyLongMask) == armMultiplyLongBits) {
@@ -1680,14 +1707,14 @@ public:
 			return &ARM7TDMI<T>::halfwordDataTransfer<(bool)(lutFillIndex & 0b0001'0000'0000), (bool)(lutFillIndex & 0b0000'1000'0000), (bool)(lutFillIndex & 0b0000'0100'0000), (bool)(lutFillIndex & 0b0000'0010'0000), (bool)(lutFillIndex & 0b0000'0001'0000), ((lutFillIndex & 0b0000'0000'0110) >> 1)>;
 		} else if constexpr ((lutFillIndex & armDataProcessingMask) == armDataProcessingBits) {
 			return &ARM7TDMI<T>::dataProcessing<(bool)(lutFillIndex & 0b0010'0000'0000), ((lutFillIndex & 0b0001'1110'0000) >> 5), (bool)(lutFillIndex & 0b0000'0001'0000)>;
-		} else if constexpr ((lutFillIndex & armUndefined2Mask) == armUndefined2Bits) {
-			return &ARM7TDMI<T>::undefined;
 		} else if constexpr ((lutFillIndex & armSingleDataTransferMask) == armSingleDataTransferBits) {
 			return &ARM7TDMI<T>::singleDataTransfer<(bool)(lutFillIndex & 0b0010'0000'0000), (bool)(lutFillIndex & 0b0001'0000'0000), (bool)(lutFillIndex & 0b0000'1000'0000), (bool)(lutFillIndex & 0b0000'0100'0000), (bool)(lutFillIndex & 0b0000'0010'0000), (bool)(lutFillIndex & 0b0000'0001'0000)>;
 		} else if constexpr ((lutFillIndex & armBlockDataTransferMask) == armBlockDataTransferBits) {
 			return &ARM7TDMI<T>::blockDataTransfer<(bool)(lutFillIndex & 0b0001'0000'0000), (bool)(lutFillIndex & 0b0000'1000'0000), (bool)(lutFillIndex & 0b0000'0100'0000), (bool)(lutFillIndex & 0b0000'0010'0000), (bool)(lutFillIndex & 0b0000'0001'0000)>;
 		} else if constexpr ((lutFillIndex & armBranchMask) == armBranchBits) {
 			return &ARM7TDMI<T>::branch<(bool)(lutFillIndex & 0b0001'0000'0000)>;
+		} else if constexpr ((lutFillIndex & armCoprocessorRegisterTransferMask) == armCoprocessorRegisterTransferBits) {
+			return &ARM7TDMI<T>::armCoprocessorRegisterTransfer<(bool)(lutFillIndex & 0b0000'0001'0000)>;
 		} else if constexpr ((lutFillIndex & armSoftwareInterruptMask) == armSoftwareInterruptBits) {
 			return &ARM7TDMI<T>::softwareInterrupt;
 		}

@@ -343,6 +343,12 @@ public:
 			u32 lutIndex = ((opcode & 0x0FF00000) >> 16) | ((opcode & 0x000000F0) >> 4);
 			if ((lutIndex & armUndefined1Mask) == armUndefined1Bits) {
 				return "Undefined";
+			} else if ((lutIndex & armUndefined2Mask) == armUndefined2Bits) {
+				return "Undefined";
+			} else if ((lutIndex & armUndefined3Mask) == armUndefined3Bits) {
+				return "Undefined";
+			} else if ((lutIndex & armUndefined4Mask) == armUndefined4Bits) {
+				return "Undefined";
 			} else if ((lutIndex & armMultiplyMask) == armMultiplyBits) {
 				bool accumulate = lutIndex & 0b0000'0010'0000;
 				bool sBit = lutIndex & 0b0000'0001'0000;
@@ -511,8 +517,6 @@ public:
 				disassembledOpcode << disassembleShift(opcode, false);
 
 				return disassembledOpcode.str();
-			} else if ((lutIndex & armUndefined2Mask) == armUndefined2Bits) {
-				return "Undefined";
 			} else if ((lutIndex & armSingleDataTransferMask) == armSingleDataTransferBits) {
 				bool immediateOffset = lutIndex & 0b0010'0000'0000;
 				bool prePostIndex = lutIndex & 0b0001'0000'0000;
@@ -726,10 +730,16 @@ private:
 		return returnValue.str();
 	}
 
-	static const u32 armDataProcessingMask = 0b1100'0000'0000;
-	static const u32 armDataProcessingBits = 0b0000'0000'0000;
 	static const u32 armUndefined1Mask = 0b1111'1011'0000;
 	static const u32 armUndefined1Bits = 0b0011'0000'0000;
+	static const u32 armUndefined2Mask = 0b1110'0000'0001;
+	static const u32 armUndefined2Bits = 0b0110'0000'0001;
+	static const u32 armUndefined3Mask = 0b1'1111'1111'1111;
+	static const u32 armUndefined3Bits = 0b0'0001'0110'0001;
+	static const u32 armUndefined4Mask = 0b1'1111'1001'1111;
+	static const u32 armUndefined4Bits = 0b0'0001'0000'0101;
+	static const u32 armDataProcessingMask = 0b1100'0000'0000;
+	static const u32 armDataProcessingBits = 0b0000'0000'0000;
 	static const u32 armMultiplyMask = 0b1111'1100'1111;
 	static const u32 armMultiplyBits = 0b0000'0000'1001;
 	static const u32 armMultiplyLongMask = 0b1111'1000'1111;
@@ -748,8 +758,6 @@ private:
 	static const u32 armHalfwordDataTransferBits = 0b0000'0000'1001;
 	static const u32 armSingleDataTransferMask = 0b1100'0000'0000;
 	static const u32 armSingleDataTransferBits = 0b0100'0000'0000;
-	static const u32 armUndefined2Mask = 0b1110'0000'0001;
-	static const u32 armUndefined2Bits = 0b0110'0000'0001;
 	static const u32 armBlockDataTransferMask = 0b1110'0000'0000;
 	static const u32 armBlockDataTransferBits = 0b1000'0000'0000;
 	static const u32 armBranchMask = 0b1110'0000'0000;

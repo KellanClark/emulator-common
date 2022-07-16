@@ -2,6 +2,7 @@
 #define TYPES_HPP
 
 #include <array>
+#include <algorithm>
 #include <bit>
 #include <cstdint>
 #include <cstdio>

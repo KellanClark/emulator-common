@@ -3,11 +3,13 @@
 #define ARM946E_HPP
 
 #include "types.hpp"
+#include "cp15.hpp"
 
 template <class T>
 class ARM946E {
 public:
 	T& bus;
+	SystemControlCoprocessor cp15;
 	bool processFiq;
 	bool processIrq;
 
@@ -17,6 +19,8 @@ public:
 	}
 
 	void resetARM946E()  {
+		cp15.reset();
+
 		processFiq = false;
 		processIrq = false;
 
@@ -35,7 +39,7 @@ public:
 		reg.R[12] = 0x00000000;
 		reg.R[13] = 0x00000000;
 		reg.R[14] = 0x00000000;
-		reg.R[15] = 0x00000000;
+		reg.R[15] = (cp15.vectorOffset ? 0xFFFF0000 : 0x00000000);
 
 		reg.CPSR = 0x000000D3;
 
@@ -163,7 +167,7 @@ public:
 		reg.fiqDisable = true;
 		reg.thumbMode = false;
 
-		reg.R[15] = 0x0000001C;
+		reg.R[15] = (cp15.vectorOffset ? 0xFFFF0000 : 0x00000000) | 0x1C;
 		flushPipeline();
 	}
 
@@ -179,7 +183,7 @@ public:
 		reg.fiqDisable = true;
 		reg.thumbMode = false;
 
-		reg.R[15] = 0x00000018;
+		reg.R[15] = (cp15.vectorOffset ? 0xFFFF0000 : 0x00000000) | 0x18;
 		flushPipeline();
 	}
 
@@ -991,7 +995,7 @@ public:
 		reg.R[14] = reg.R[15] - 4;
 		fetchOpcode();
 
-		reg.R[15] = 0x4;
+		reg.R[15] = (cp15.vectorOffset ? 0xFFFF0000 : 0x00000000) | 0x04;
 		flushPipeline();
 	}
 
@@ -1129,7 +1133,7 @@ public:
 		bankRegisters(MODE_SUPERVISOR, true);
 		reg.R[14] = reg.R[15] - 8;
 
-		reg.R[15] = 0x8;
+		reg.R[15] = (cp15.vectorOffset ? 0xFFFF0000 : 0x00000000) | 0x8;
 		flushPipeline();
 	}
 
@@ -1654,7 +1658,7 @@ public:
 		reg.R[14] = reg.R[15] - 2;
 		fetchOpcode();
 
-		reg.R[15] = 0x4;
+		reg.R[15] = (cp15.vectorOffset ? 0xFFFF0000 : 0x00000000) | 0x4;
 		flushPipeline();
 	}
 
@@ -1663,7 +1667,7 @@ public:
 		bankRegisters(MODE_SUPERVISOR, true);
 		reg.R[14] = reg.R[15] - 4;
 
-		reg.R[15] = 0x8;
+		reg.R[15] = (cp15.vectorOffset ? 0xFFFF0000 : 0x00000000) | 0x8;
 		flushPipeline();
 	}
 
@@ -1704,10 +1708,12 @@ public:
 	}
 
 	/* Generate Instruction LUTs */
-	static const u32 armDataProcessingMask = 0b1'1100'0000'0000;
-	static const u32 armDataProcessingBits = 0b0'0000'0000'0000;
 	static const u32 armUndefined1Mask = 0b1'1111'1011'0000;
 	static const u32 armUndefined1Bits = 0b0'0011'0000'0000;
+	static const u32 armUndefined2Mask = 0b1'1110'0000'0001;
+	static const u32 armUndefined2Bits = 0b0'0110'0000'0001;
+	static const u32 armDataProcessingMask = 0b1'1100'0000'0000;
+	static const u32 armDataProcessingBits = 0b0'0000'0000'0000;
 	static const u32 armMultiplyMask = 0b1'1111'1100'1111;
 	static const u32 armMultiplyBits = 0b0'0000'0000'1001;
 	static const u32 armMultiplyLongMask = 0b0'1111'1000'1111;
@@ -1732,8 +1738,6 @@ public:
 	static const u32 armHalfwordDataTransferBits = 0b0'0000'0000'1001;
 	static const u32 armSingleDataTransferMask = 0b1'1100'0000'0000;
 	static const u32 armSingleDataTransferBits = 0b0'0100'0000'0000;
-	static const u32 armUndefined2Mask = 0b1'1110'0000'0001;
-	static const u32 armUndefined2Bits = 0b0'0110'0000'0001;
 	static const u32 armBlockDataTransferMask = 0b1'1110'0000'0000;
 	static const u32 armBlockDataTransferBits = 0b0'1000'0000'0000;
 	static const u32 armBranchMask = 0b0'1110'0000'0000;
@@ -1796,6 +1800,8 @@ public:
 	constexpr static lutEntry decode() {
 		if constexpr ((lutFillIndex & armUndefined1Mask) == armUndefined1Bits) {
 			return &ARM946E<T>::undefined;
+		} else if constexpr ((lutFillIndex & armUndefined2Mask) == armUndefined2Bits) {
+			return &ARM946E<T>::undefined;
 		} else if constexpr ((lutFillIndex & armMultiplyMask) == armMultiplyBits) {
 			return &ARM946E<T>::multiply<(bool)(lutFillIndex & 0b0000'0010'0000), (bool)(lutFillIndex & 0b0000'0001'0000)>;
 		} else if constexpr ((lutFillIndex & armMultiplyLongMask) == armMultiplyLongBits) {
@@ -1820,8 +1826,6 @@ public:
 			return &ARM946E<T>::halfwordDataTransfer<(bool)(lutFillIndex & 0b0001'0000'0000), (bool)(lutFillIndex & 0b0000'1000'0000), (bool)(lutFillIndex & 0b0000'0100'0000), (bool)(lutFillIndex & 0b0000'0010'0000), (bool)(lutFillIndex & 0b0000'0001'0000), ((lutFillIndex & 0b0000'0000'0110) >> 1)>;
 		} else if constexpr ((lutFillIndex & armDataProcessingMask) == armDataProcessingBits) {
 			return &ARM946E<T>::dataProcessing<(bool)(lutFillIndex & 0b0010'0000'0000), ((lutFillIndex & 0b0001'1110'0000) >> 5), (bool)(lutFillIndex & 0b0000'0001'0000)>;
-		} else if constexpr ((lutFillIndex & armUndefined2Mask) == armUndefined2Bits) {
-			return &ARM946E<T>::undefined;
 		} else if constexpr ((lutFillIndex & armSingleDataTransferMask) == armSingleDataTransferBits) {
 			return &ARM946E<T>::singleDataTransfer<(bool)(lutFillIndex & 0b0010'0000'0000), (bool)(lutFillIndex & 0b0001'0000'0000), (bool)(lutFillIndex & 0b0000'1000'0000), (bool)(lutFillIndex & 0b0000'0100'0000), (bool)(lutFillIndex & 0b0000'0010'0000), (bool)(lutFillIndex & 0b0000'0001'0000)>;
 		} else if constexpr ((lutFillIndex & armBlockDataTransferMask) == armBlockDataTransferBits) {
