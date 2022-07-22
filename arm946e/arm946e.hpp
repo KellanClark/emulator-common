@@ -14,9 +14,14 @@ public:
 	bool processIrq;
 
 	/* User Functions */
-	ARM946E(T& bus_)  : bus(bus_) {
-		//resetARM946E();
-	}
+	static constexpr std::size_t BMP_BITS = 16; // Thanks to BreadFish64 because I never would've come up with this breakpoint myself
+	static constexpr std::size_t TABLE_BITS = 32 - BMP_BITS;
+	static constexpr std::size_t BMP_SIZE = 1 << BMP_BITS;
+	static constexpr std::size_t TABLE_SIZE = 1 << TABLE_BITS;
+	static constexpr std::size_t BMP_MASK = BMP_SIZE - 1;
+	std::vector<std::unique_ptr<std::bitset<BMP_SIZE>>> breakpointsTable;
+
+	ARM946E(T& bus) : bus(bus), breakpointsTable(TABLE_SIZE){};
 
 	void resetARM946E()  {
 		cp15.reset();
@@ -83,6 +88,35 @@ public:
 					fetchOpcode();
 				}
 			}
+		}
+
+#ifndef ARM946E_DISABLE_DEBUG
+		u32 nextInstrAddress = reg.R[15] - (reg.thumbMode ? 4 : 8);
+		// Again, this is too smart for me
+		if (const auto& breakpointBitmap = breakpointsTable[nextInstrAddress >> BMP_BITS];
+			breakpointBitmap && breakpointBitmap->test(nextInstrAddress & BMP_MASK)) { [[unlikely]]
+			bus.breakpoint();
+		}
+#endif
+	}
+
+	void addBreakpoint(u32 address) {
+		auto& page = breakpointsTable[address >> BMP_BITS];
+		if (!page) {
+			page = std::make_unique<std::bitset<BMP_SIZE>>();
+		}
+		page->set(address & BMP_MASK);
+	}
+
+	void removeBreakpoint(u32 address) {
+		auto& page = breakpointsTable[address >> BMP_BITS];
+		if (!page) {
+			return;
+		}
+
+		page->reset(address & BMP_MASK);
+		if (page->none()) {
+			page.reset();
 		}
 	}
 
@@ -825,9 +859,9 @@ public:
 			operand1 = (i64)((i32)reg.R[opcode & 0xF]);
 
 			if constexpr (x) { // SMULW
-				result = ((operand1 * operand2) >> 16) + (i64)((i32)reg.R[(opcode >> 12) & 0xF]);
-			} else { // SMLAW
 				result = (operand1 * operand2) >> 16;
+			} else { // SMLAW
+				result = ((operand1 * operand2) >> 16) + (i64)((i32)reg.R[(opcode >> 12) & 0xF]);
 			}
 			break;
 		case 2: // SMLAL
@@ -1094,16 +1128,14 @@ public:
 		}
 	}
 
-	template <bool useThumb, bool linkThumb> void branch(u32 opcode) {
-		u32 address = reg.R[15] + (((i32)((opcode & 0x00FFFFFF) << 8)) >> 6);
+	template <bool useThumb, bool linkOffset> void branch(u32 opcode) {
+		u32 address = reg.R[15] + (((i32)((opcode & 0x00FFFFFF) << 8)) >> 6) + (useThumb ? ((linkOffset << 1) | 1) : 0);
 		fetchOpcode();
 
-		if constexpr (linkThumb || useThumb)
+		if constexpr (linkOffset || useThumb)
 			reg.R[14] = reg.R[15] - 8;
 		reg.R[15] = address;
-		if constexpr (useThumb && linkThumb)
-			reg.thumbMode = true;
-		flushPipeline();
+		flushPipeline(true);
 	}
 
 	template <bool loadStore> void armCoprocessorRegisterTransfer(u32 opcode) {
@@ -1690,7 +1722,7 @@ public:
 		fetchOpcode();
 
 		reg.R[15] = address;
-		flushPipeline();
+		flushPipeline(true);
 	}
 
 	template <bool lowHigh> void thumbLongBranchLink(u16 opcode) {

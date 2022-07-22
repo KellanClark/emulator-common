@@ -12,9 +12,14 @@ public:
 	bool processIrq;
 
 	/* User Functions */
-	ARM7TDMI(T& bus_)  : bus(bus_) {
-		//resetARM7TDMI();
-	}
+	static constexpr std::size_t BMP_BITS = 16; // Thanks to BreadFish64 because I never would've come up with this breakpoint myself
+	static constexpr std::size_t TABLE_BITS = 32 - BMP_BITS;
+	static constexpr std::size_t BMP_SIZE = 1 << BMP_BITS;
+	static constexpr std::size_t TABLE_SIZE = 1 << TABLE_BITS;
+	static constexpr std::size_t BMP_MASK = BMP_SIZE - 1;
+	std::vector<std::unique_ptr<std::bitset<BMP_SIZE>>> breakpointsTable;
+
+	ARM7TDMI(T& bus) : bus(bus), breakpointsTable(TABLE_SIZE){};
 
 	void resetARM7TDMI()  {
 		processFiq = false;
@@ -73,6 +78,35 @@ public:
 					fetchOpcode();
 				}
 			}
+		}
+
+#ifndef ARM7TDMI_DISABLE_DEBUG
+		u32 nextInstrAddress = reg.R[15] - (reg.thumbMode ? 4 : 8);
+		// Again, this is too smart for me
+		if (const auto& breakpointBitmap = breakpointsTable[nextInstrAddress >> BMP_BITS];
+			breakpointBitmap && breakpointBitmap->test(nextInstrAddress & BMP_MASK)) { [[unlikely]]
+			bus.breakpoint();
+		}
+#endif
+	}
+
+	void addBreakpoint(u32 address) {
+		auto& page = breakpointsTable[address >> BMP_BITS];
+		if (!page) {
+			page = std::make_unique<std::bitset<BMP_SIZE>>();
+		}
+		page->set(address & BMP_MASK);
+	}
+
+	void removeBreakpoint(u32 address) {
+		auto& page = breakpointsTable[address >> BMP_BITS];
+		if (!page) {
+			return;
+		}
+
+		page->reset(address & BMP_MASK);
+		if (page->none()) {
+			page.reset();
 		}
 	}
 
