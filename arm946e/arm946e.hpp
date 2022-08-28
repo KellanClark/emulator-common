@@ -63,6 +63,14 @@ public:
 	}
 
 	void cycle() {
+		if (cp15.halted) {
+			if (processFiq || processIrq) {
+				cp15.halted = false;
+			} else {
+				return;
+			}
+		}
+
 #ifndef ARM946E_DISABLE_FIQ
 		if(processFiq && !reg.irqDisable) { [[unlikely]] // Service fast interrupt
 				serviceFiq();

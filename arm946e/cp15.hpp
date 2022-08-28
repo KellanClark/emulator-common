@@ -75,6 +75,8 @@ public:
 	u32 dtcmStart;
 	u32 dtcmEnd;
 	u32 itcmEnd;
+
+	bool halted;
 };
 
 #endif //ARM946E_CP15_HPP
