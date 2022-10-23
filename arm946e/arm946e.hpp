@@ -72,7 +72,7 @@ public:
 		}
 
 #ifndef ARM946E_DISABLE_FIQ
-		if(processFiq && !reg.irqDisable) { [[unlikely]] // Service fast interrupt
+		if(processFiq && !reg.fiqDisable) { [[unlikely]] // Service fast interrupt
 				serviceFiq();
 		} else
 #endif
