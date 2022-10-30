@@ -19,6 +19,7 @@ public:
 		memset(itcm, 0, 0x8000);
 
 		control = 0x00012078;
+		halted = false;
 	}
 
 	~SystemControlCoprocessor() {
