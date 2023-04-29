@@ -474,13 +474,12 @@ public:
 			break;
 		default:
 			printf("Unknown mode 0x%02X\n", newMode);
-			bus.log << fmt::format("Unknown mode 0x{:0>2X}\n", newMode);
+			bus.log << fmt::format("Unknown mode 0x{:0>2X}\n", (int)newMode);
 			bus.hacf();
 			return;
 		}
 
 		if (enterMode) {
-			//reg.R[14] = reg.R[15] - (reg.thumbMode ? 2 : 4);
 			reg.CPSR = (reg.CPSR & ~0x3F) | newMode;
 		}
 	}
