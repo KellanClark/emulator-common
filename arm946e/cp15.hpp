@@ -1,8 +1,6 @@
+#pragma once
 
-#ifndef ARM946E_CP15_HPP
-#define ARM946E_CP15_HPP
-
-#include "types.hpp"
+#include "../types.hpp"
 
 class SystemControlCoprocessor {
 public:
@@ -79,5 +77,3 @@ public:
 
 	bool halted;
 };
-
-#endif //ARM946E_CP15_HPP

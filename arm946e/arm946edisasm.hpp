@@ -1,7 +1,6 @@
-#ifndef ARM946E_DISASM_HPP
-#define ARM946E_DISASM_HPP
+#pragma once
 
-#include "types.hpp"
+#include "../types.hpp"
 
 class ARM946EDisassembler {
 public:
@@ -910,5 +909,3 @@ private:
 	static const u16 thumbLongBranchLinkMask = 0b1111'0000'00;
 	static const u16 thumbLongBranchLinkBits = 0b1111'0000'00;
 };
-
-#endif

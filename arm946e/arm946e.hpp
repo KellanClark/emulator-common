@@ -1,8 +1,6 @@
+#pragma once
 
-#ifndef ARM946E_HPP
-#define ARM946E_HPP
-
-#include "types.hpp"
+#include "../types.hpp"
 #include "cp15.hpp"
 
 template <class T>
@@ -48,16 +46,12 @@ public:
 
 		reg.CPSR = 0x000000D3;
 
-		reg.R8_user = reg.R9_user = reg.R10_user = reg.R11_user = reg.R12_user = reg.R13_user = reg.R14_user = 0;
-		reg.R8_fiq = reg.R9_fiq = reg.R10_fiq = reg.R11_fiq = reg.R12_fiq = reg.R13_fiq = reg.R14_fiq = reg.SPSR_fiq = 0;
-		reg.R13_svc = reg.R14_svc = reg.SPSR_svc = 0;
-		reg.R13_abt = reg.R14_abt = reg.SPSR_abt = 0;
-		reg.R13_irq = reg.R14_irq = reg.SPSR_irq = 0;
-		reg.R13_und = reg.R14_und = reg.SPSR_und = 0;
-
-		reg.R13_irq = 0x0000000;
-		reg.R13_svc = 0x0000000;
-		reg.R13_fiq = reg.R13_abt = reg.R13_und = 0x00000000;
+		for (int i = 0; i < 8; i++) reg.R_usr[i] = 0x00000000;
+		for (int i = 0; i < 8; i++) reg.R_fiq[i] = 0x00000000;
+		for (int i = 0; i < 8; i++) reg.R_svc[i] = 0x00000000;
+		for (int i = 0; i < 8; i++) reg.R_abt[i] = 0x00000000;
+		for (int i = 0; i < 8; i++) reg.R_irq[i] = 0x00000000;
+		for (int i = 0; i < 8; i++) reg.R_und[i] = 0x00000000;
 
 		flushPipeline();
 	}
@@ -159,12 +153,13 @@ public:
 		};
 
 		// Banked registers for each mode
-		u32 R8_user, R9_user, R10_user, R11_user, R12_user, R13_user, R14_user;
-		u32 R8_fiq, R9_fiq, R10_fiq, R11_fiq, R12_fiq, R13_fiq, R14_fiq, SPSR_fiq;
-		u32 R13_svc, R14_svc, SPSR_svc;
-		u32 R13_abt, R14_abt, SPSR_abt;
-		u32 R13_irq, R14_irq, SPSR_irq;
-		u32 R13_und, R14_und, SPSR_und;
+		// Indexes 0-6 are R8-R14, 7 is SPSR
+		u32 R_usr[8];
+		u32 R_fiq[8];
+		u32 R_svc[8];
+		u32 R_abt[8];
+		u32 R_irq[8];
+		u32 R_und[8];
 	} reg;
 
 	/* Instruction Fetch/Decode */
@@ -385,101 +380,71 @@ public:
 	}
 
 	void bankRegisters(cpuMode newMode, bool enterMode) {
-		if (reg.mode != MODE_FIQ) {
-			reg.R8_user = reg.R[8];
-			reg.R9_user = reg.R[9];
-			reg.R10_user = reg.R[10];
-			reg.R11_user = reg.R[11];
-			reg.R12_user = reg.R[12];
-		}
-
+		u32 *currentModeBank = nullptr;
 		switch (reg.mode) {
 		case MODE_SYSTEM:
-		case MODE_USER:
-			reg.R13_user = reg.R[13];
-			reg.R14_user = reg.R[14];
-			break;
-		case MODE_FIQ:
-			reg.R8_fiq = reg.R[8];
-			reg.R9_fiq = reg.R[9];
-			reg.R10_fiq = reg.R[10];
-			reg.R11_fiq = reg.R[11];
-			reg.R12_fiq = reg.R[12];
-			reg.R13_fiq = reg.R[13];
-			reg.R14_fiq = reg.R[14];
-			break;
-		case MODE_IRQ:
-			reg.R13_irq = reg.R[13];
-			reg.R14_irq = reg.R[14];
-			break;
-		case MODE_SUPERVISOR:
-			reg.R13_svc = reg.R[13];
-			reg.R14_svc = reg.R[14];
-			break;
-		case MODE_ABORT:
-			reg.R13_abt = reg.R[13];
-			reg.R14_abt = reg.R[14];
-			break;
-		case MODE_UNDEFINED:
-			reg.R13_und = reg.R[13];
-			reg.R14_und = reg.R[14];
-			break;
+		case MODE_USER: currentModeBank = reg.R_usr; break;
+		case MODE_FIQ: currentModeBank = reg.R_fiq; break;
+		case MODE_IRQ: currentModeBank = reg.R_irq; break;
+		case MODE_SUPERVISOR: currentModeBank = reg.R_svc; break;
+		case MODE_ABORT: currentModeBank = reg.R_abt; break;
+		case MODE_UNDEFINED: currentModeBank = reg.R_und; break;
 		}
 
+		u32 *newModeBank = nullptr;
 		switch (newMode) {
 		case MODE_SYSTEM:
-		case MODE_USER:
-			reg.R[8] = reg.R8_user;
-			reg.R[9] = reg.R9_user;
-			reg.R[10] = reg.R10_user;
-			reg.R[11] = reg.R11_user;
-			reg.R[12] = reg.R12_user;
-			reg.R[13] = reg.R13_user;
-			reg.R[14] = reg.R14_user;
-			break;
-		case MODE_FIQ:
-			reg.R[8] = reg.R8_fiq;
-			reg.R[9] = reg.R9_fiq;
-			reg.R[10] = reg.R10_fiq;
-			reg.R[11] = reg.R11_fiq;
-			reg.R[12] = reg.R12_fiq;
-			reg.R[13] = reg.R13_fiq;
-			reg.R[14] = reg.R14_fiq;
-			if (enterMode)
-				reg.SPSR_fiq = reg.CPSR;
-			break;
-		case MODE_IRQ:
-			reg.R[13] = reg.R13_irq;
-			reg.R[14] = reg.R14_irq;
-			if (enterMode)
-				reg.SPSR_irq = reg.CPSR;
-			break;
-		case MODE_SUPERVISOR:
-			reg.R[13] = reg.R13_svc;
-			reg.R[14] = reg.R14_svc;
-			if (enterMode)
-				reg.SPSR_svc = reg.CPSR;
-			break;
-		case MODE_ABORT:
-			reg.R[13] = reg.R13_abt;
-			reg.R[14] = reg.R14_abt;
-			if (enterMode)
-				reg.SPSR_abt = reg.CPSR;
-			break;
-		case MODE_UNDEFINED:
-			reg.R[13] = reg.R13_und;
-			reg.R[14] = reg.R14_und;
-			if (enterMode)
-				reg.SPSR_und = reg.CPSR;
-			break;
+		case MODE_USER: newModeBank = reg.R_usr; break;
+		case MODE_FIQ: newModeBank = reg.R_fiq; break;
+		case MODE_IRQ: newModeBank = reg.R_irq; break;
+		case MODE_SUPERVISOR: newModeBank = reg.R_svc; break;
+		case MODE_ABORT: newModeBank = reg.R_abt; break;
+		case MODE_UNDEFINED: newModeBank = reg.R_und; break;
 		default:
-			printf("Unknown mode 0x%02X\n", newMode);
-			bus.log << fmt::format("Unknown mode 0x{:0>2X}\n", (int)newMode);
+			printf("Invalid mode 0x%02X\n", newMode);
+			bus.log << fmt::format("Invalid mode 0x{:0>2X}\n", (int)newMode);
 			bus.hacf();
 			return;
 		}
 
+		// Save current bank
+		if (reg.mode == MODE_FIQ) {
+			reg.R_fiq[0] = reg.R[8];
+			reg.R_fiq[1] = reg.R[9];
+			reg.R_fiq[2] = reg.R[10];
+			reg.R_fiq[3] = reg.R[11];
+			reg.R_fiq[4] = reg.R[12];
+		} else { // User mode R8-R12 stores whatever was in R8-R12 so any mode can be switched to from fiq
+			reg.R_usr[0] = reg.R[8];
+			reg.R_usr[1] = reg.R[9];
+			reg.R_usr[2] = reg.R[10];
+			reg.R_usr[3] = reg.R[11];
+			reg.R_usr[4] = reg.R[12];
+		}
+		currentModeBank[5] = reg.R[13];
+		currentModeBank[6] = reg.R[14];
+
+		// Load new bank
+		if (newMode == MODE_FIQ) {
+			reg.R[8] = reg.R_fiq[0];
+			reg.R[9] = reg.R_fiq[1];
+			reg.R[10] = reg.R_fiq[2];
+			reg.R[11] = reg.R_fiq[3];
+			reg.R[12] = reg.R_fiq[4];
+		} else {
+			reg.R[8] = reg.R_usr[0];
+			reg.R[9] = reg.R_usr[1];
+			reg.R[10] = reg.R_usr[2];
+			reg.R[11] = reg.R_usr[3];
+			reg.R[12] = reg.R_usr[4];
+		}
+		reg.R[13] = newModeBank[5];
+		reg.R[14] = newModeBank[6];
+
+		// Save SPSR and set new CPSR
 		if (enterMode) {
+			if (newMode != MODE_SYSTEM && newMode != MODE_USER)
+				newModeBank[7] = reg.CPSR;
 			reg.CPSR = (reg.CPSR & ~0x3F) | newMode;
 		}
 	}
@@ -487,11 +452,11 @@ public:
 	void leaveMode() {
 		u32 tmpPSR = reg.CPSR;
 		switch (reg.mode) {
-		case MODE_FIQ: tmpPSR = reg.SPSR_fiq; break;
-		case MODE_IRQ: tmpPSR = reg.SPSR_irq; break;
-		case MODE_SUPERVISOR: tmpPSR = reg.SPSR_svc; break;
-		case MODE_ABORT: tmpPSR = reg.SPSR_abt; break;
-		case MODE_UNDEFINED: tmpPSR = reg.SPSR_und; break;
+		case MODE_FIQ: tmpPSR = reg.R_fiq[7]; break;
+		case MODE_IRQ: tmpPSR = reg.R_irq[7]; break;
+		case MODE_SUPERVISOR: tmpPSR = reg.R_svc[7]; break;
+		case MODE_ABORT: tmpPSR = reg.R_abt[7]; break;
+		case MODE_UNDEFINED: tmpPSR = reg.R_und[7]; break;
 		}
 		bankRegisters((cpuMode)(tmpPSR & 0x1F), false);
 		reg.CPSR = tmpPSR;
@@ -696,11 +661,11 @@ public:
 
 		if constexpr (targetPSR) {
 			switch (reg.mode) {
-			case MODE_FIQ: reg.R[destinationReg] = reg.SPSR_fiq; break;
-			case MODE_IRQ: reg.R[destinationReg] = reg.SPSR_irq; break;
-			case MODE_SUPERVISOR: reg.R[destinationReg] = reg.SPSR_svc; break;
-			case MODE_ABORT: reg.R[destinationReg] = reg.SPSR_abt; break;
-			case MODE_UNDEFINED: reg.R[destinationReg] = reg.SPSR_und; break;
+			case MODE_FIQ: reg.R[destinationReg] = reg.R_fiq[7]; break;
+			case MODE_IRQ: reg.R[destinationReg] = reg.R_irq[7]; break;
+			case MODE_SUPERVISOR: reg.R[destinationReg] = reg.R_svc[7]; break;
+			case MODE_ABORT: reg.R[destinationReg] = reg.R_abt[7]; break;
+			case MODE_UNDEFINED: reg.R[destinationReg] = reg.R_und[7]; break;
 			default: reg.R[destinationReg] = reg.CPSR; break;
 			}
 		} else {
@@ -716,21 +681,11 @@ public:
 		u32 *target;
 		if constexpr (targetPSR) {
 			switch (reg.mode) {
-			case MODE_FIQ:
-				target = &reg.SPSR_fiq;
-				break;
-			case MODE_IRQ:
-				target = &reg.SPSR_irq;
-				break;
-			case MODE_SUPERVISOR:
-				target = &reg.SPSR_svc;
-				break;
-			case MODE_ABORT:
-				target = &reg.SPSR_abt;
-				break;
-			case MODE_UNDEFINED:
-				target = &reg.SPSR_und;
-				break;
+			case MODE_FIQ: target = &reg.R_fiq[7]; break;
+			case MODE_IRQ: target = &reg.R_irq[7]; break;
+			case MODE_SUPERVISOR: target = &reg.R_svc[7]; break;
+			case MODE_ABORT: target = &reg.R_abt[7]; break;
+			case MODE_UNDEFINED: target = &reg.R_und[7]; break;
 			default:
 				fetchOpcode();
 				return;
@@ -768,11 +723,11 @@ public:
 		u32 *target;
 		if constexpr (targetPSR) {
 			switch (reg.mode) {
-			case MODE_FIQ: target = &reg.SPSR_fiq; break;
-			case MODE_IRQ: target = &reg.SPSR_irq; break;
-			case MODE_SUPERVISOR: target = &reg.SPSR_svc; break;
-			case MODE_ABORT: target = &reg.SPSR_abt; break;
-			case MODE_UNDEFINED: target = &reg.SPSR_und; break;
+			case MODE_FIQ: target = &reg.R_fiq[7]; break;
+			case MODE_IRQ: target = &reg.R_irq[7]; break;
+			case MODE_SUPERVISOR: target = &reg.R_svc[7]; break;
+			case MODE_ABORT: target = &reg.R_abt[7]; break;
+			case MODE_UNDEFINED: target = &reg.R_und[7]; break;
 			default: fetchOpcode(); return;
 			}
 		} else {
@@ -1041,9 +996,10 @@ public:
 	}
 
 	template <bool prePostIndex, bool upDown, bool sBit, bool writeBack, bool loadStore> void blockDataTransfer(u32 opcode) {
-		u32 baseRegister = (opcode >> 16) & 0xF;
+		const u32 baseRegister = (opcode >> 16) & 0xF;
+		const bool useAltRegisterBank = sBit && !(loadStore && (opcode & (1 << 15))) && reg.mode != MODE_USER && reg.mode != MODE_SYSTEM;
 		if ((baseRegister == 15) && writeBack)
-			unknownOpcodeArm(opcode, "r15 Operand With Writeback");
+			unknownOpcodeArm(opcode, "LDM/STM has r15 as the Base Register When Writeback is Enabled");
 
 		u32 address = reg.R[baseRegister];
 		u32 writeBackAddress;
@@ -1065,73 +1021,64 @@ public:
 				address += 4;
 		}
 
-		cpuMode oldMode = (cpuMode)reg.mode;
-		if constexpr (sBit) {
-			bankRegisters(MODE_USER, false);
-			reg.mode = MODE_USER;
-		}
 		fetchOpcode();
 
 		bool firstReadWrite = true; // TODO: Interleave fetches with register writes
 		if constexpr (loadStore) { // LDM
-			if (emptyRegList) { // TODO: find timings for empty list
-				reg.R[baseRegister] = writeBackAddress;
-			} else {
-				for (int i = 0; i < 16; i++) {
-					if (opcode & (1 << i)) {
-
-						reg.R[i] = bus.template read<u32, false>(address, !firstReadWrite);
-						address += 4;
-
-						if (firstReadWrite)
-							firstReadWrite = false;
-					}
-				}
-				bus.iCycle(1);
-
-				if constexpr (writeBack) {
-					if (opcode & (baseRegister << 1)) { // Base register is in rlist
-						// > writeback if Rb is "the ONLY register, or NOT the LAST register" in Rlist
-						if ((std::popcount(opcode & 0xFFFF) == 1) || ((15 - std::countl_zero((u16)opcode)) != baseRegister)) {
-							reg.R[baseRegister] = writeBackAddress;
-						}
+			// TODO: Find timings for empty rlist
+			for (int i = 0; i < 16; i++) {
+				if (opcode & (1 << i)) {
+					u32 value = bus.template read<u32, false>(address, !firstReadWrite);
+					if (useAltRegisterBank && i >= (reg.mode == MODE_FIQ ? 8 : 13) && i != 15) {
+						reg.R_usr[i - 8] = value;
 					} else {
+						reg.R[i] = value;
+					}
+					address += 4;
+
+					if (firstReadWrite)
+						firstReadWrite = false;
+				}
+			}
+			bus.iCycle(1);
+
+			if constexpr (writeBack) {
+				if (opcode & (baseRegister << 1)) { // Base register is in rlist
+					// > writeback if Rb is "the ONLY register, or NOT the LAST register" in Rlist
+					if ((std::popcount(opcode & 0xFFFF) == 1) || ((15 - std::countl_zero((u16)opcode)) != baseRegister)) {
 						reg.R[baseRegister] = writeBackAddress;
 					}
+				} else {
+					reg.R[baseRegister] = writeBackAddress;
 				}
+			}
 
-				if (opcode & (1 << 15)) { // Treat r15 loads as jumps
-					flushPipeline(true);
-				}
+			if (opcode & (1 << 15)) { // Treat r15 loads as jumps
+				flushPipeline(true);
 			}
 		} else { // STM
-			if (emptyRegList) {
-				reg.R[baseRegister] = writeBackAddress;
-			} else {
-				for (int i = 0; i < 16; i++) {
-					if (opcode & (1 << i)) {
+			for (int i = 0; i < 16; i++) {
+				if (opcode & (1 << i)) {
+					if (useAltRegisterBank && i >= (reg.mode == MODE_FIQ ? 8 : 13) && i != 15) {
+						bus.template write<u32>(address, reg.R_usr[i - 8], !firstReadWrite);
+					} else {
 						bus.template write<u32>(address, reg.R[i], !firstReadWrite);
-						address += 4;
-
-						if (firstReadWrite)
-							firstReadWrite = false;
 					}
-				}
+					address += 4;
 
-				if constexpr (writeBack)
-					reg.R[baseRegister] = writeBackAddress;
+					if (firstReadWrite)
+						firstReadWrite = false;
+				}
 			}
+
+			if constexpr (writeBack)
+				reg.R[baseRegister] = writeBackAddress;
 
 			nextFetchType = false;
 		}
 
-		if constexpr (sBit) {
-			bankRegisters(oldMode, false);
-			reg.mode = oldMode;
-
-			if ((opcode & (1 << 15)) && loadStore) {
-				leaveMode();
-			}
+		if (sBit && loadStore && (opcode & (1 << 15))) {
+			leaveMode();
 		}
 	}
 
@@ -1959,5 +1906,3 @@ public:
 		generateTableThumb(std::make_index_sequence<1024>())
 	};
 };
-
-#endif

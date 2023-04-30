@@ -1,8 +1,6 @@
+#pragma once
 
-#ifndef WAVFILE_HPP
-#define WAVFILE_HPP
-
-#include "types.hpp"
+#include "../types.hpp"
 
 #include <fstream>
 
@@ -68,5 +66,3 @@ private:
 	u32 frequency;
 	u32 channels;
 };
-
-#endif
