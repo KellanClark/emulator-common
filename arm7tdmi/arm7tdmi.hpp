@@ -1700,6 +1700,10 @@ public:
 			return &ARM7TDMI<T>::blockDataTransfer<(bool)(lutFillIndex & 0b0001'0000'0000), (bool)(lutFillIndex & 0b0000'1000'0000), (bool)(lutFillIndex & 0b0000'0100'0000), (bool)(lutFillIndex & 0b0000'0010'0000), (bool)(lutFillIndex & 0b0000'0001'0000)>;
 		} else if constexpr ((lutFillIndex & armBranchMask) == armBranchBits) {
 			return &ARM7TDMI<T>::branch<(bool)(lutFillIndex & 0b0001'0000'0000)>;
+		} else if constexpr ((lutFillIndex & armCoprocessorDataTransferMask) == armCoprocessorDataTransferBits) {
+			return &ARM7TDMI<T>::undefined;
+		} else if constexpr ((lutFillIndex & armCoprocessorDataOperationMask) == armCoprocessorDataOperationBits) {
+			return &ARM7TDMI<T>::undefined;
 		} else if constexpr ((lutFillIndex & armCoprocessorRegisterTransferMask) == armCoprocessorRegisterTransferBits) {
 			return &ARM7TDMI<T>::armCoprocessorRegisterTransfer<(bool)(lutFillIndex & 0b0000'0001'0000)>;
 		} else if constexpr ((lutFillIndex & armSoftwareInterruptMask) == armSoftwareInterruptBits) {

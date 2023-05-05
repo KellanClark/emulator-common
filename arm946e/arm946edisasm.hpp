@@ -66,8 +66,6 @@ public:
 				} else {
 					disassembledOpcode << getRegName(offset);
 				}
-
-				return disassembledOpcode.str();
 			} else if ((lutIndex & thumbMoveShiftedRegMask) == thumbMoveShiftedRegBits) {
 				int op = (lutIndex & 0b0001'1000'00) >> 5;
 				int shiftAmount = lutIndex & 0b0000'0111'11;
@@ -83,8 +81,6 @@ public:
 				if ((shiftAmount == 0) && (op != 0))
 					shiftAmount = 32;
 				disassembledOpcode << shiftAmount;
-
-				return disassembledOpcode.str();
 			} else if ((lutIndex & thumbAluImmediateMask) == thumbAluImmediateBits) {
 				int op = (lutIndex & 0b0001'1000'00) >> 5;
 				int destinationReg = (lutIndex & 0b0000'0111'00) >> 2;
@@ -101,8 +97,6 @@ public:
 					disassembledOpcode << "0x" << std::hex;
 				}
 				disassembledOpcode << (opcode & 0xFF);
-
-				return disassembledOpcode.str();
 			} else if ((lutIndex & thumbAluRegMask) == thumbAluRegBits) {
 				int op = lutIndex & 0b0000'0011'11;
 
@@ -126,8 +120,6 @@ public:
 				}
 
 				disassembledOpcode << " " << getRegName(opcode & 7) << ", " << getRegName((opcode >> 3) & 7);
-
-				return disassembledOpcode.str();
 			} else if ((lutIndex & thumbHighRegOperationMask) == thumbHighRegOperationBits) {
 				int op = (lutIndex & 0b0000'0011'00) >> 2;
 				bool opFlag1 = lutIndex & 0b0000'0000'10;
@@ -143,8 +135,6 @@ public:
 				if (op != 3)
 					disassembledOpcode << getRegName((opcode & 0x7) + (opFlag1 ? 8 : 0)) << ", ";
 				disassembledOpcode << getRegName(((opcode >> 3) & 0x7) + (opFlag2 ? 8 : 0));
-
-				return disassembledOpcode.str();
 			} else if ((lutIndex & thumbPcRelativeLoadMask) == thumbPcRelativeLoadBits) {
 				int destinationReg = (lutIndex & 0b0000'0111'00) >> 2;
 
@@ -153,8 +143,6 @@ public:
 				if (options.printOperandsHex)
 					disassembledOpcode << "0x" << std::hex;
 				disassembledOpcode << ((opcode & 0xFF) << 2) << "]";
-
-				return disassembledOpcode.str();
 			} else if ((lutIndex & thumbLoadStoreRegOffsetMask) == thumbLoadStoreRegOffsetBits) {
 				bool loadStore = lutIndex & 0b0000'1000'00;
 				bool byteWord = lutIndex & 0b0000'0100'00;
@@ -162,8 +150,6 @@ public:
 
 				// I was lazy and put this all on one line
 				disassembledOpcode << (loadStore ? "LDR" : "STR") << (byteWord ? "B " : " ") << getRegName(opcode & 7) << ", [" << getRegName((opcode >> 3) & 7) << ", " << getRegName(offsetReg) << "]";
-
-				return disassembledOpcode.str();
 			} else if ((lutIndex & thumbLoadStoreSextMask) == thumbLoadStoreSextBits) {
 				int hsBits = (lutIndex & 0b0000'1100'00) >> 4;
 				int offsetReg = lutIndex & 0b0000'0001'11;
@@ -176,8 +162,6 @@ public:
 				}
 
 				disassembledOpcode << getRegName(opcode & 7) << ", [" << getRegName((opcode >> 3) & 7) << ", " << getRegName(offsetReg) << "]";
-
-				return disassembledOpcode.str();
 			} else if ((lutIndex & thumbLoadStoreImmediateOffsetMask) == thumbLoadStoreImmediateOffsetBits) {
 				bool byteWord = lutIndex & 0b0001'0000'00;
 				bool loadStore = lutIndex & 0b0000'1000'00;
@@ -188,8 +172,6 @@ public:
 				if (options.printOperandsHex)
 					disassembledOpcode << "0x" << std::hex;
 				disassembledOpcode << (byteWord ? offset : (offset << 2)) << "]";
-
-				return disassembledOpcode.str();
 			} else if ((lutIndex & thumbLoadStoreHalfwordMask) == thumbLoadStoreHalfwordBits) {
 				bool loadStore = lutIndex & 0b0000'1000'00;
 				int offset = lutIndex & 0b0000'0111'11;
@@ -199,8 +181,6 @@ public:
 				if (options.printOperandsHex)
 					disassembledOpcode << "0x" << std::hex;
 				disassembledOpcode << (offset << 1) << "]";
-
-				return disassembledOpcode.str();
 			} else if ((lutIndex & thumbSpRelativeLoadStoreMask) == thumbSpRelativeLoadStoreBits) {
 				bool loadStore = lutIndex & 0b0000'1000'00;
 				int destinationReg = (lutIndex & 0b0000'0111'00) >> 2;
@@ -209,8 +189,6 @@ public:
 				if (options.printOperandsHex)
 					disassembledOpcode << "0x" << std::hex;
 				disassembledOpcode << ((opcode & 0xFF) << 2) << "]";
-
-				return disassembledOpcode.str();
 			} else if ((lutIndex & thumbLoadAddressMask) == thumbLoadAddressBits) {
 				bool spPc = lutIndex & 0b0000'1000'00;
 				int destinationReg = (lutIndex & 0b0000'0111'00) >> 2;
@@ -220,8 +198,6 @@ public:
 					disassembledOpcode << "0x" << std::hex;
 				}
 				disassembledOpcode << ((opcode & 0xFF) << 2);
-
-				return disassembledOpcode.str();
 			} else if ((lutIndex & thumbSpAddOffsetMask) == thumbSpAddOffsetBits) {
 				bool isNegative = lutIndex & 0b0000'0000'10;
 
@@ -229,8 +205,6 @@ public:
 				if (options.printOperandsHex)
 					disassembledOpcode << "0x" << std::hex;
 				disassembledOpcode << (isNegative ? "-" : "") << ((opcode & 0x7F) << 2);
-
-				return disassembledOpcode.str();
 			} else if ((lutIndex & thumbPushPopRegistersMask) == thumbPushPopRegistersBits) {
 				bool loadStore = lutIndex & 0b0000'1000'00;
 				bool pcLr = lutIndex & 0b0000'0001'00;
@@ -259,8 +233,6 @@ public:
 				if (pcLr)
 					disassembledOpcode << (hasPrintedRegister ? "," : "") << getRegName(loadStore ? 15 : 14);
 				disassembledOpcode << "}";
-
-				return disassembledOpcode.str();
 			} else if ((lutIndex & thumbMultipleLoadStoreMask) == thumbMultipleLoadStoreBits) {
 				bool loadStore = lutIndex & 0b0000'1000'00;
 				int baseReg = (lutIndex & 0b0000'0111'00) >> 2;
@@ -287,8 +259,6 @@ public:
 					}
 				}
 				disassembledOpcode << "}";
-
-				return disassembledOpcode.str();
 			} else if ((lutIndex & thumbUndefinedMask) == thumbUndefinedBits) {
 				return "Undefined THUMB";
 			} else if ((lutIndex & thumbSoftwareInterruptMask) == thumbSoftwareInterruptBits) {
@@ -297,8 +267,6 @@ public:
 				} else {
 					disassembledOpcode << "SWI" << " #" << (opcode & 0x00FF);
 				}
-
-				return disassembledOpcode.str();
 			} else if ((lutIndex & thumbConditionalBranchMask) == thumbConditionalBranchBits) {
 				u32 jmpAddress = address + ((i16)((u16)opcode << 8) >> 7) + 4;
 
@@ -306,8 +274,6 @@ public:
 				if (options.printAddressesHex)
 					disassembledOpcode << "0x" << std::hex;
 				disassembledOpcode << jmpAddress;
-
-				return disassembledOpcode.str();
 			} else if ((lutIndex & thumbUnconditionalBranchMask) == thumbUnconditionalBranchBits) {
 				u32 jmpAddress = address + ((i16)((u16)opcode << 5) >> 4) + 4;
 
@@ -315,18 +281,11 @@ public:
 				if (options.printAddressesHex)
 					disassembledOpcode << "0x" << std::hex;
 				disassembledOpcode << jmpAddress;
-
-				return disassembledOpcode.str();
 			} else if ((lutIndex & thumbBlxSuffixMask) == thumbBlxSuffixBits) {
-				if (opcode & 1)
-					return "Undefined THUMB";
-
 				disassembledOpcode << "BLX[suffix] #";
 				if (options.printOperandsHex)
 					disassembledOpcode << "0x" << std::hex;
 				disassembledOpcode << (((opcode & 0x7FF) << 1) & ~3);
-
-				return disassembledOpcode.str();
 			} else if ((lutIndex & thumbLongBranchLinkMask) == thumbLongBranchLinkBits) {
 				bool lowHigh = lutIndex & 0b0000'1000'00;
 
@@ -341,11 +300,9 @@ public:
 						disassembledOpcode << "0x" << std::hex;
 					disassembledOpcode << ((i32)((u32)opcode << 21) >> 9);
 				}
-
-				return disassembledOpcode.str();
+			} else {
+				return "Undefined THUMB";
 			}
-
-			return "Undefined THUMB";
 		} else {
 			u32 lutIndex = ((opcode & 0x0FF00000) >> 16) | ((opcode & 0x000000F0) >> 4);
 			if ((lutIndex & armUndefined1Mask) == armUndefined1Bits) {
@@ -371,8 +328,6 @@ public:
 
 				if (accumulate)
 					disassembledOpcode << ", " << getRegName((opcode >> 12) & 0xF);
-
-				return disassembledOpcode.str();
 			} else if ((lutIndex & armMultiplyLongMask) == armMultiplyLongBits) {
 				bool signedMul = lutIndex & 0b0000'0100'0000;
 				bool accumulate = lutIndex & 0b0000'0010'0000;
@@ -389,22 +344,16 @@ public:
 
 				if (accumulate)
 					disassembledOpcode << ", " << getRegName((opcode >> 12) & 0xF);
-
-				return disassembledOpcode.str();
 			} else if ((lutIndex & armSingleDataSwapMask) == armSingleDataSwapBits) {
 				bool byteWord = lutIndex & 0b0000'0100'0000;
 
 				disassembledOpcode << "SWP" << conditionCode << (byteWord ? "B " : " ");
 				disassembledOpcode << getRegName((opcode >> 12) & 0xF) << ", " << getRegName(opcode & 0xF) << ", [" << getRegName((opcode >> 16) & 0xF) << "]";
-
-				return disassembledOpcode.str();
 			} else if ((lutIndex & armPsrLoadMask) == armPsrLoadBits) {
 				bool targetPSR = lutIndex & 0b0000'0100'0000;
 
 				disassembledOpcode << "MRS" << conditionCode << " ";
 				disassembledOpcode << getRegName((opcode >> 12) & 0xF) << ", " << (targetPSR ? "SPSR" : "CPSR");
-
-				return disassembledOpcode.str();
 			} else if ((lutIndex & armPsrStoreRegMask) == armPsrStoreRegBits) {
 				bool targetPSR = lutIndex & 0b0000'0100'0000;
 
@@ -417,8 +366,6 @@ public:
 					<< ((opcode & (1 << 16)) ? "c" : "") << ", ";
 
 				disassembledOpcode << getRegName(opcode & 0xF);
-
-				return disassembledOpcode.str();
 			} else if ((lutIndex & armPsrStoreImmediateMask) == armPsrStoreImmediateBits) {
 				bool targetPSR = lutIndex & 0b0000'0100'0000;
 
@@ -435,18 +382,12 @@ public:
 				u32 operand = opcode & 0xFF;
 				u32 shiftAmount = (opcode & (0xF << 8)) >> 7;
 				disassembledOpcode << (shiftAmount ? ((operand >> shiftAmount) | (operand << (32 - shiftAmount))) : operand);
-
-				return disassembledOpcode.str();
 			} else if ((lutIndex & armBranchExchangeMask) == armBranchExchangeBits) {
 				bool link = lutIndex & 0b0000'0100'0010;
 
 				disassembledOpcode << (link ? "BLX" : "BX") << conditionCode << " " << getRegName(opcode & 0xF);
-
-				return disassembledOpcode.str();
 			} else if ((lutIndex & armCountLeadingZerosMask) == armCountLeadingZerosBits) {
 				disassembledOpcode << "CLZ" << conditionCode << " " << getRegName((opcode >> 12) & 0xF) << ", " << getRegName(opcode & 0xF);
-
-				return disassembledOpcode.str();
 			} else if ((lutIndex & armDspAddSubtractMask) == armDspAddSubtractBits) {
 				int op = (lutIndex & 0b0000'0110'0000) >> 5;
 
@@ -458,8 +399,6 @@ public:
 				}
 
 				disassembledOpcode << conditionCode << " " << getRegName((opcode >> 12) & 0xF) << ", " << getRegName(opcode & 0xF) << ", " << getRegName((opcode >> 16) & 0xF);
-
-				return disassembledOpcode.str();
 			} else if ((lutIndex & armDspMultiplyMask) == armDspMultiplyBits) {
 				int op = (lutIndex & 0b0000'0110'0000) >> 5;
 				bool y = lutIndex & 0b0000'0000'0100;
@@ -501,8 +440,6 @@ public:
 					disassembledOpcode << ", " << getRegName((opcode >> 8) & 0xF);
 					break;
 				}
-
-				return disassembledOpcode.str();
 			} else if ((lutIndex & armHalfwordDataTransferMask) == armHalfwordDataTransferBits) {
 				bool prePostIndex = lutIndex & 0b0001'0000'0000;
 				bool upDown = lutIndex & 0b0000'1000'0000;
@@ -516,13 +453,13 @@ public:
 					case 0:
 						return "Undefined";
 					case 1:
-						disassembledOpcode << "LDRH";
+						disassembledOpcode << "LDR" << conditionCode << "H";
 						break;
 					case 2:
-						disassembledOpcode << "LDRSB";
+						disassembledOpcode << "LDR" << conditionCode << "SB";
 						break;
 					case 3:
-						disassembledOpcode << "LDRSH";
+						disassembledOpcode << "LDR" << conditionCode << "SH";
 						break;
 					}
 				} else {
@@ -530,13 +467,13 @@ public:
 					case 0:
 						return "Undefined";
 					case 1:
-						disassembledOpcode << "STRH";
+						disassembledOpcode << "STR" << conditionCode << "H";
 						break;
 					case 2:
-						disassembledOpcode << "LDRD";
+						disassembledOpcode << "LDR" << conditionCode << "D";
 						break;
 					case 3:
-						disassembledOpcode << "STRD";
+						disassembledOpcode << "STR" << conditionCode << "D";
 						break;
 					}
 				}
@@ -564,8 +501,6 @@ public:
 
 				if (prePostIndex)
 					disassembledOpcode << "]" << (writeBack ? "!" : "");
-
-				return disassembledOpcode.str();
 			} else if ((lutIndex & armDataProcessingMask) == armDataProcessingBits) {
 				auto operation = (lutIndex & 0b0001'1110'0000) >> 5;
 				bool sBit = lutIndex & 0b0000'0001'0000;
@@ -600,8 +535,6 @@ public:
 					disassembledOpcode << getRegName(((0xF << 16) & opcode) >> 16) << ", ";
 
 				disassembledOpcode << disassembleShift(opcode, false);
-
-				return disassembledOpcode.str();
 			} else if ((lutIndex & armSingleDataTransferMask) == armSingleDataTransferBits) {
 				bool immediateOffset = lutIndex & 0b0010'0000'0000;
 				bool prePostIndex = lutIndex & 0b0001'0000'0000;
@@ -627,8 +560,6 @@ public:
 
 				if (prePostIndex)
 					disassembledOpcode << "]" << (writeBack ? "!" : "");
-
-				return disassembledOpcode.str();
 			} else if ((lutIndex & armBlockDataTransferMask) == armBlockDataTransferBits) {
 				bool prePostIndex = lutIndex & 0b0001'0000'0000;
 				bool upDown = lutIndex & 0b0000'1000'0000;
@@ -694,8 +625,6 @@ public:
 
 				if (sBit)
 					disassembledOpcode << "^";
-
-				return disassembledOpcode.str();
 			} else if ((lutIndex & armBranchMask) == armBranchBits) {
 				bool useThumb = lutIndex & 0b1'0000'0000'0000;
 				bool link = lutIndex & 0b0'0001'0000'0000;
@@ -717,32 +646,70 @@ public:
 				} else {
 					disassembledOpcode << " #" << jumpLocation;
 				}
+			} else if ((lutIndex & armCoprocessorDoubleTransferMask) == armCoprocessorDoubleTransferBits) {
+				bool loadStore = lutIndex & 0b0000'0001'0000;
 
-				return disassembledOpcode.str();
+				disassembledOpcode << (loadStore ? "MRRC" : "MCRR") << conditionCode;
+				disassembledOpcode << " p" << ((opcode >> 8) & 0xF);
+				disassembledOpcode << ", #" << ((opcode >> 4) & 0xF);
+				disassembledOpcode << ", " << getRegName((opcode >> 12) & 0xF);
+				disassembledOpcode << ", " << getRegName((opcode >> 16) & 0xF);
+				disassembledOpcode << ", c" << (opcode & 0xF);
+			} else if ((lutIndex & armCoprocessorDataTransferMask) == armCoprocessorDataTransferBits) {
+				bool loadStore = lutIndex & 0b0000'0001'0000;
+				bool writeBack = lutIndex & 0b0000'0010'0000;
+				bool dwordWord = lutIndex & 0b0000'0100'0000;
+				bool upDown = lutIndex & 0b0000'1000'0000;
+				bool prePostIndex = lutIndex & 0b0001'0000'0000;
+				int offset = (opcode & 0xFF) << 2;
+
+				disassembledOpcode << (loadStore ? "LDC" : "STC") << conditionCode << (dwordWord ? "L" : "");
+				disassembledOpcode << " p" << ((opcode >> 8) & 0xF);
+				disassembledOpcode << ", c" << ((opcode >> 12) & 0xF);
+				disassembledOpcode << ", [" << getRegName((opcode >> 16) & 0xF);
+
+				if (!prePostIndex) disassembledOpcode << "]";
+
+				if (offset != 0) disassembledOpcode << ", #" << (upDown ? "" : "-");
+				if (options.printAddressesHex) {
+					disassembledOpcode << "0x" << std::hex << offset;
+				} else {
+					disassembledOpcode << offset;
+				}
+
+				if (prePostIndex) disassembledOpcode << "]" << (writeBack ? "!" : "");
+			} else if ((lutIndex & armCoprocessorDataOperationMask) == armCoprocessorDataOperationBits) {
+				disassembledOpcode << "CDP" << conditionCode;
+				disassembledOpcode << " p" << ((opcode >> 8) & 0xF);
+				disassembledOpcode << ", #" << ((opcode >> 20) & 0xF);
+				disassembledOpcode << ", c" << ((opcode >> 12) & 0xF);
+				disassembledOpcode << ", c" << ((opcode >> 16) & 0xF);
+				disassembledOpcode << ", c" << (opcode & 0xF);
+				disassembledOpcode << ", #" << ((opcode >> 5) & 0x7);
 			} else if ((lutIndex & armCoprocessorRegisterTransferMask) == armCoprocessorRegisterTransferBits) {
 				bool loadStore = lutIndex & 0b0000'0001'0000;
 
-				disassembledOpcode << (loadStore ? "MRC" : "MCR") << ((lutIndex & 0b1'0000'0000'0000) ? "2" : conditionCode);
+				disassembledOpcode << (loadStore ? "MRC" : "MCR") << conditionCode;
 				disassembledOpcode << " p" << ((opcode >> 8) & 0xF);
 				disassembledOpcode << ", #" << ((opcode >> 21) & 0x7);
 				disassembledOpcode << ", " << getRegName((opcode >> 12) & 0xF);
 				disassembledOpcode << ", c" << ((opcode >> 16) & 0xF);
 				disassembledOpcode << ", c" << (opcode & 0xF);
 				disassembledOpcode << ", #" << ((opcode >> 5) & 0x7);
-
-				return disassembledOpcode.str();
 			} else if ((lutIndex & armSoftwareInterruptMask) == armSoftwareInterruptBits) {
 				if (options.printAddressesHex) {
 					disassembledOpcode << "SWI" << conditionCode << " #0x" << std::hex << (opcode & 0x00FFFFFF);
 				} else {
 					disassembledOpcode << "SWI" << conditionCode << " #" << (opcode & 0x00FFFFFF);
 				}
-
-				return disassembledOpcode.str();
+			} else if ((lutIndex & armPreloadMask) == armPreloadBits) {
+				disassembledOpcode << "PLD [" << getRegName((opcode >> 16) & 0xF) << ", " << disassembleShift(opcode, true) << "]";
+			} else {
+				return "Undefined ARM";
 			}
-
-			return "Undefined ARM";
 		}
+
+		return disassembledOpcode.str();
 	}
 
 private:
@@ -762,9 +729,10 @@ private:
 
 	std::string disassembleShift(u32 opcode, bool showUpDown) {
 		std::stringstream returnValue;
+		bool upDown = (opcode >> 23) & 1;
 
 		if (showUpDown && !((opcode >> 25) & 1)) {
-			returnValue << ((showUpDown & !((opcode >> 23) & 1)) ? "#-" : "#");
+			returnValue << ((showUpDown & !upDown) ? "#-" : "#");
 			if (options.printOperandsHex) {
 				returnValue << "0x" << std::hex;
 			}
@@ -783,7 +751,7 @@ private:
 			}
 		} else {
 			if (showUpDown) {
-				returnValue << (((opcode >> 23) & 1) ? "" : "-");
+				returnValue << (upDown ? "" : "-");
 			}
 			returnValue << getRegName(opcode & 0xF);
 
@@ -858,14 +826,18 @@ private:
 	static const u32 armBlockDataTransferBits = 0b0'1000'0000'0000;
 	static const u32 armBranchMask = 0b0'1110'0000'0000;
 	static const u32 armBranchBits = 0b0'1010'0000'0000;
+	static const u32 armCoprocessorDoubleTransferMask = 0b1'1111'1110'0000;
+	static const u32 armCoprocessorDoubleTransferBits = 0b0'1100'0100'0000;
 	static const u32 armCoprocessorDataTransferMask = 0b0'1110'0000'0000;
 	static const u32 armCoprocessorDataTransferBits = 0b0'1100'0000'0000;
 	static const u32 armCoprocessorDataOperationMask = 0b0'1111'0000'0001;
 	static const u32 armCoprocessorDataOperationBits = 0b0'1110'0000'0000;
 	static const u32 armCoprocessorRegisterTransferMask = 0b0'1111'0000'0001;
 	static const u32 armCoprocessorRegisterTransferBits = 0b0'1110'0000'0001;
-	static const u32 armSoftwareInterruptMask = 0b1111'0000'0000;
-	static const u32 armSoftwareInterruptBits = 0b1111'0000'0000;
+	static const u32 armSoftwareInterruptMask = 0b1'1111'0000'0000;
+	static const u32 armSoftwareInterruptBits = 0b0'1111'0000'0000;
+	static const u32 armPreloadMask = 0b1'1101'0111'0000;
+	static const u32 armPreloadBits = 0b1'0101'0101'0000;
 	static const u16 thumbMoveShiftedRegMask = 0b1110'0000'00;
 	static const u16 thumbMoveShiftedRegBits = 0b0000'0000'00;
 	static const u16 thumbAddSubtractMask = 0b1111'1000'00;

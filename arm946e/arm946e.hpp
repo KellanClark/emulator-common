@@ -1123,6 +1123,10 @@ public:
 		flushPipeline();
 	}
 
+	template <bool immediateOffset, bool upDown> void preload(u32 opcode) { // Basically a NOP unless I decide to implement the cache
+		fetchOpcode();
+	}
+
 	/* THUMB Instructions */
 	template <int op, int shiftAmount> void thumbMoveShiftedReg(u16 opcode)  {
 		u32 shiftOperand = reg.R[(opcode >> 3) & 7];
@@ -1694,48 +1698,52 @@ public:
 	}
 
 	/* Generate Instruction LUTs */
-	static const u32 armUndefined1Mask = 0b1'1111'1011'0000;
-	static const u32 armUndefined1Bits = 0b0'0011'0000'0000;
-	static const u32 armUndefined2Mask = 0b1'1110'0000'0001;
-	static const u32 armUndefined2Bits = 0b0'0110'0000'0001;
-	static const u32 armDataProcessingMask = 0b1'1100'0000'0000;
-	static const u32 armDataProcessingBits = 0b0'0000'0000'0000;
-	static const u32 armMultiplyMask = 0b1'1111'1100'1111;
-	static const u32 armMultiplyBits = 0b0'0000'0000'1001;
-	static const u32 armMultiplyLongMask = 0b0'1111'1000'1111;
-	static const u32 armMultiplyLongBits = 0b0'0000'1000'1001;
-	static const u32 armPsrLoadMask = 0b1'1111'1011'1111;
-	static const u32 armPsrLoadBits = 0b0'0001'0000'0000;
-	static const u32 armPsrStoreRegMask = 0b1'1111'1011'1111;
-	static const u32 armPsrStoreRegBits = 0b0'0001'0010'0000;
-	static const u32 armPsrStoreImmediateMask = 0b1'1111'1011'0000;
-	static const u32 armPsrStoreImmediateBits = 0b0'0011'0010'0000;
-	static const u32 armSingleDataSwapMask = 0b1'1111'1011'1111;
-	static const u32 armSingleDataSwapBits = 0b0'0001'0000'1001;
-	static const u32 armBranchExchangeMask = 0b1'1111'1111'1101;
-	static const u32 armBranchExchangeBits = 0b0'0001'0010'0001;
-	static const u32 armCountLeadingZerosMask = 0b1'1111'1111'1111;
-	static const u32 armCountLeadingZerosBits = 0b0'0001'0110'0001;
-	static const u32 armDspAddSubtractMask = 0b1'1111'1001'1111;
-	static const u32 armDspAddSubtractBits = 0b0'0001'0000'0101;
-	static const u32 armDspMultiplyMask = 0b1'1111'1001'1001;
-	static const u32 armDspMultiplyBits = 0b0'0001'0000'1000;
-	static const u32 armHalfwordDataTransferMask = 0b1'1110'0000'1001;
-	static const u32 armHalfwordDataTransferBits = 0b0'0000'0000'1001;
-	static const u32 armSingleDataTransferMask = 0b1'1100'0000'0000;
-	static const u32 armSingleDataTransferBits = 0b0'0100'0000'0000;
-	static const u32 armBlockDataTransferMask = 0b1'1110'0000'0000;
-	static const u32 armBlockDataTransferBits = 0b0'1000'0000'0000;
-	static const u32 armBranchMask = 0b0'1110'0000'0000;
-	static const u32 armBranchBits = 0b0'1010'0000'0000;
-	static const u32 armCoprocessorDataTransferMask = 0b0'1110'0000'0000;
-	static const u32 armCoprocessorDataTransferBits = 0b0'1100'0000'0000;
-	static const u32 armCoprocessorDataOperationMask = 0b0'1111'0000'0001;
-	static const u32 armCoprocessorDataOperationBits = 0b0'1110'0000'0000;
-	static const u32 armCoprocessorRegisterTransferMask = 0b0'1111'0000'0001;
-	static const u32 armCoprocessorRegisterTransferBits = 0b0'1110'0000'0001;
+	static const u32 armUndefined1Mask = 0b1111'1011'0000;
+	static const u32 armUndefined1Bits = 0b0011'0000'0000;
+	static const u32 armUndefined2Mask = 0b1110'0000'0001;
+	static const u32 armUndefined2Bits = 0b0110'0000'0001;
+	static const u32 armDataProcessingMask = 0b1100'0000'0000;
+	static const u32 armDataProcessingBits = 0b0000'0000'0000;
+	static const u32 armMultiplyMask = 0b1111'1100'1111;
+	static const u32 armMultiplyBits = 0b0000'0000'1001;
+	static const u32 armMultiplyLongMask = 0b1111'1000'1111;
+	static const u32 armMultiplyLongBits = 0b0000'1000'1001;
+	static const u32 armPsrLoadMask = 0b1111'1011'1111;
+	static const u32 armPsrLoadBits = 0b0001'0000'0000;
+	static const u32 armPsrStoreRegMask = 0b1111'1011'1111;
+	static const u32 armPsrStoreRegBits = 0b0001'0010'0000;
+	static const u32 armPsrStoreImmediateMask = 0b1111'1011'0000;
+	static const u32 armPsrStoreImmediateBits = 0b0011'0010'0000;
+	static const u32 armSingleDataSwapMask = 0b1111'1011'1111;
+	static const u32 armSingleDataSwapBits = 0b0001'0000'1001;
+	static const u32 armBranchExchangeMask = 0b1111'1111'1101;
+	static const u32 armBranchExchangeBits = 0b0001'0010'0001;
+	static const u32 armCountLeadingZerosMask = 0b1111'1111'1111;
+	static const u32 armCountLeadingZerosBits = 0b0001'0110'0001;
+	static const u32 armDspAddSubtractMask = 0b1111'1001'1111;
+	static const u32 armDspAddSubtractBits = 0b0001'0000'0101;
+	static const u32 armDspMultiplyMask = 0b1111'1001'1001;
+	static const u32 armDspMultiplyBits = 0b0001'0000'1000;
+	static const u32 armHalfwordDataTransferMask = 0b1110'0000'1001;
+	static const u32 armHalfwordDataTransferBits = 0b0000'0000'1001;
+	static const u32 armSingleDataTransferMask = 0b1100'0000'0000;
+	static const u32 armSingleDataTransferBits = 0b0100'0000'0000;
+	static const u32 armBlockDataTransferMask = 0b1110'0000'0000;
+	static const u32 armBlockDataTransferBits = 0b1000'0000'0000;
+	static const u32 armBranchMask = 0b1110'0000'0000;
+	static const u32 armBranchBits = 0b1010'0000'0000;
+	static const u32 armCoprocessorDoubleTransferMask = 0b1111'1110'0000;
+	static const u32 armCoprocessorDoubleTransferBits = 0b1100'0100'0000;
+	static const u32 armCoprocessorDataTransferMask = 0b1110'0000'0000;
+	static const u32 armCoprocessorDataTransferBits = 0b1100'0000'0000; // TODO: MRRC and MCRR
+	static const u32 armCoprocessorDataOperationMask = 0b1111'0000'0001;
+	static const u32 armCoprocessorDataOperationBits = 0b1110'0000'0000;
+	static const u32 armCoprocessorRegisterTransferMask = 0b1111'0000'0001;
+	static const u32 armCoprocessorRegisterTransferBits = 0b1110'0000'0001;
 	static const u32 armSoftwareInterruptMask = 0b1111'0000'0000;
 	static const u32 armSoftwareInterruptBits = 0b1111'0000'0000;
+	static const u32 armPreloadMask = 0b1101'0111'0000;
+	static const u32 armPreloadBits = 0b0101'0101'0000;
 	static const u16 thumbMoveShiftedRegMask = 0b1110'0000'00;
 	static const u16 thumbMoveShiftedRegBits = 0b0000'0000'00;
 	static const u16 thumbAddSubtractMask = 0b1111'1000'00;
@@ -1782,6 +1790,7 @@ public:
 	using lutEntry = void (ARM946E<T>::*)(u32);
 	using thumbLutEntry = void (ARM946E<T>::*)(u16);
 
+	// I wanted to make this one big LUT, but it makes my compiler and Actions run out of memory
 	template <std::size_t lutFillIndex>
 	constexpr static lutEntry decode() {
 		if constexpr ((lutFillIndex & armUndefined1Mask) == armUndefined1Bits) {
@@ -1818,6 +1827,12 @@ public:
 			return &ARM946E<T>::blockDataTransfer<(bool)(lutFillIndex & 0b0001'0000'0000), (bool)(lutFillIndex & 0b0000'1000'0000), (bool)(lutFillIndex & 0b0000'0100'0000), (bool)(lutFillIndex & 0b0000'0010'0000), (bool)(lutFillIndex & 0b0000'0001'0000)>;
 		} else if constexpr ((lutFillIndex & armBranchMask) == armBranchBits) {
 			return &ARM946E<T>::branch<false, (bool)(lutFillIndex & 0b0001'0000'0000)>;
+		} else if constexpr ((lutFillIndex & armCoprocessorDoubleTransferMask) == armCoprocessorDoubleTransferBits) {
+			return &ARM946E<T>::undefined;
+		} else if constexpr ((lutFillIndex & armCoprocessorDataTransferMask) == armCoprocessorDataTransferBits) {
+			return &ARM946E<T>::undefined;
+		} else if constexpr ((lutFillIndex & armCoprocessorDataOperationMask) == armCoprocessorDataOperationBits) {
+			return &ARM946E<T>::undefined;
 		} else if constexpr ((lutFillIndex & armCoprocessorRegisterTransferMask) == armCoprocessorRegisterTransferBits) {
 			return &ARM946E<T>::armCoprocessorRegisterTransfer<(bool)(lutFillIndex & 0b0000'0001'0000)>;
 		} else if constexpr ((lutFillIndex & armSoftwareInterruptMask) == armSoftwareInterruptBits) {
@@ -1830,6 +1845,14 @@ public:
 	constexpr static lutEntry decode2() {
 		if constexpr ((lutFillIndex & armBranchMask) == armBranchBits) {
 			return &ARM946E<T>::branch<true, (bool)(lutFillIndex & 0b0001'0000'0000)>;
+		} else if constexpr ((lutFillIndex & armCoprocessorDataTransferMask) == armCoprocessorDataTransferBits) {
+			return &ARM946E<T>::undefined;
+		} else if constexpr ((lutFillIndex & armCoprocessorDataOperationMask) == armCoprocessorDataOperationBits) {
+			return &ARM946E<T>::undefined;
+		} else if constexpr ((lutFillIndex & armCoprocessorRegisterTransferMask) == armCoprocessorRegisterTransferBits) {
+			return &ARM946E<T>::armCoprocessorRegisterTransfer<(bool)(lutFillIndex & 0b0000'0001'0000)>;
+		} else if constexpr ((lutFillIndex & armPreloadMask) == armPreloadBits) {
+			return &ARM946E<T>::preload<(bool)(lutFillIndex & 0b0010'0000'0000), (bool)(lutFillIndex & 0b0000'1000'0000)>;
 		}
 
 		return &ARM946E<T>::unknownOpcodeArm;
@@ -1842,7 +1865,6 @@ public:
 	constexpr static std::array<lutEntry, 4096> generateTable2(std::index_sequence<lutFillIndex...>) {
 		return std::array{decode2<lutFillIndex>()...};
 	}
-	// I wanted to make this one big LUT, but that's prone to making compilers run out of memory
 	constexpr static const std::array<lutEntry, 4096> armLUT = {
 		generateTable(std::make_index_sequence<4096>())
 	};
