@@ -5,14 +5,11 @@
 #include <bit>
 #include <bitset>
 #include <cstdint>
-#include <cstdio>
 #include <iostream>
-#include <memory>
 #include <sstream>
-#include <string>
 #include <vector>
 
-#include "fmt/core.h"
+#include <spdlog/spdlog.h>
 
 using i8 = std::int8_t;
 using u8 = std::uint8_t;
